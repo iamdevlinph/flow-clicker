@@ -17,6 +17,7 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <nav class="top-tabs" aria-label="Main sections"><button class="top-tab active" id="flowsTab">Flows</button><button class="top-tab" id="settingsTab">Settings</button></nav>
         <div class="status-pill" id="runtimeStatus"><span class="dot"></span><span>Ready</span></div>
         <button class="ghost" id="saveNowBtn">Save now</button>
       </div>
@@ -29,7 +30,7 @@
             <span class="eyebrow">Library</span>
             <h2>Flows</h2>
           </div>
-          <button class="icon-btn" id="newFlowBtn" title="New flow">＋</button>
+          <div class="library-menu-wrap"><button class="icon-btn" id="newFlowBtn" title="New flow">＋</button><button class="icon-btn" id="libraryMenuBtn" title="Library menu">⋯</button><div id="libraryMenu" class="context-menu hidden"><button id="newGroupBtn">New group</button><button id="combineMenuBtn">Combine flows</button></div></div>
         </div>
 
         <label class="search-box">
@@ -37,10 +38,7 @@
           <input id="flowSearch" placeholder="Search flows" />
         </label>
 
-        <div class="combine-hint">
-          <strong>Combine mode</strong>
-          <span>Check flows in the order you want them merged. Sources stay unchanged.</span>
-        </div>
+        <div class="combine-hint"><strong>Flow Library</strong><span>Drag to reorder flows or move them between groups.</span></div>
 
         <div id="flowList" class="flow-list"></div>
 
@@ -58,6 +56,7 @@
             <div class="flow-meta" id="flowMeta">0 actions · 0 clicks</div>
           </div>
           <div class="head-actions">
+            <button id="flowSettingsBtn">Settings</button>
             <button class="danger-ghost" id="deleteFlowBtn">Delete</button>
           </div>
         </div>
@@ -69,15 +68,14 @@
           <button class="play" id="runBtn">▶ Run flow</button>
           <button id="stopRunBtn" disabled>■ Stop</button>
           <div class="transport-divider"></div>
-          <button id="showMapBtn">Show click map</button>
-          <button id="editPointsBtn">Edit click points</button>
-          <button id="hideMapBtn" disabled>Hide map</button>
+          <button id="showMapBtn" aria-pressed="false">Show click map</button>
         </div>
 
         <div class="editor-toolbar">
           <div class="toolbar-group">
             <button id="addClickBtn">＋ Click</button>
             <button id="addDelayBtn">＋ Delay</button>
+            <button id="groupActionsBtn">Group selected</button><button id="ungroupActionBtn">Ungroup</button>
             <button class="accent-outline" id="importActionsBtn">⇣ Import actions</button>
           </div>
           <div class="toolbar-group">
@@ -137,6 +135,7 @@
             <label class="field grow"><span>Value</span><input id="repeatValue" type="number" min="1" step="1" /></label>
             <label class="field grow" id="repeatUnitField"><span>Unit</span><select id="repeatUnit"><option>seconds</option><option>minutes</option><option>hours</option></select></label>
           </div>
+          <label class="field"><span>Stop at (local time)</span><input id="untilTime" type="time" /></label>
         </div>
 
         <div class="setting-card">
@@ -165,10 +164,6 @@
           <div id="platformNote" class="platform-note hidden"></div>
         </div>
 
-        <div class="warning-card">
-          <strong>Physical mouse mode</strong>
-          <span>Playback moves and clicks the real cursor. Keep the target visible and avoid using the mouse while a flow runs.</span>
-        </div>
       </aside>
     </main>
   </div>
@@ -200,7 +195,9 @@
     </div>
   </div>
 
+  <div class="modal-backdrop hidden" id="groupModal"><div class="modal small-modal"><div class="modal-head"><div><span class="eyebrow">Action group</span><h2>Edit group</h2></div><button class="icon-btn" id="closeGroupBtn">×</button></div><label class="field"><span>Name</span><input id="groupNameInput" /></label><label class="field"><span>Repeat count</span><input id="groupRepeatInput" type="number" min="1" step="1" /></label><div class="modal-actions"><button id="cancelGroupBtn">Cancel</button><button class="primary" id="saveGroupBtn">Save group</button></div></div></div>
+
   <div id="toastStack" class="toast-stack"></div>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

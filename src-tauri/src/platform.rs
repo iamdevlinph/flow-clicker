@@ -8,7 +8,12 @@ mod imp {
     type Hwnd = *mut c_void;
 
     #[repr(C)]
-    struct Rect { left: i32, top: i32, right: i32, bottom: i32 }
+    struct Rect {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
 
     #[link(name = "user32")]
     extern "system" {
@@ -22,19 +27,36 @@ mod imp {
     }
 
     fn title(hwnd: Hwnd) -> Option<String> {
-        if hwnd.is_null() { return None; }
+        if hwnd.is_null() {
+            return None;
+        }
         let len = unsafe { GetWindowTextLengthW(hwnd) };
-        if len <= 0 { return None; }
+        if len <= 0 {
+            return None;
+        }
         let mut buf = vec![0u16; len as usize + 1];
         let written = unsafe { GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32) };
-        if written <= 0 { return None; }
+        if written <= 0 {
+            return None;
+        }
         Some(String::from_utf16_lossy(&buf[..written as usize]))
     }
 
     fn rect(hwnd: Hwnd) -> Option<Rect> {
-        if hwnd.is_null() { return None; }
-        let mut r = Rect { left: 0, top: 0, right: 0, bottom: 0 };
-        if unsafe { GetWindowRect(hwnd, &mut r) } == 0 { None } else { Some(r) }
+        if hwnd.is_null() {
+            return None;
+        }
+        let mut r = Rect {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+        };
+        if unsafe { GetWindowRect(hwnd, &mut r) } == 0 {
+            None
+        } else {
+            Some(r)
+        }
     }
 
     pub fn foreground() -> WindowSnapshot {
@@ -57,8 +79,12 @@ mod imp {
 
     extern "system" fn enum_cb(hwnd: Hwnd, lparam: isize) -> i32 {
         let data = unsafe { &mut *(lparam as *mut FindData) };
-        if unsafe { IsWindowVisible(hwnd) } == 0 { return 1; }
-        let Some(t) = title(hwnd) else { return 1; };
+        if unsafe { IsWindowVisible(hwnd) } == 0 {
+            return 1;
+        }
+        let Some(t) = title(hwnd) else {
+            return 1;
+        };
         let lower = t.to_lowercase();
         if lower == data.needle {
             data.exact = hwnd;
@@ -76,16 +102,30 @@ mod imp {
             exact: ptr::null_mut(),
             partial: ptr::null_mut(),
         };
-        if data.needle.is_empty() { return ptr::null_mut(); }
-        unsafe { EnumWindows(enum_cb, (&mut data as *mut FindData) as isize); }
-        if !data.exact.is_null() { data.exact } else { data.partial }
+        if data.needle.is_empty() {
+            return ptr::null_mut();
+        }
+        unsafe {
+            EnumWindows(enum_cb, (&mut data as *mut FindData) as isize);
+        }
+        if !data.exact.is_null() {
+            data.exact
+        } else {
+            data.partial
+        }
     }
 
     pub fn resolve(action: &ClickRef<'_>, focus: bool) -> (i32, i32) {
-        if let (Some(title), Some(rx), Some(ry)) = (action.window_title, action.relative_x, action.relative_y) {
+        if let (Some(title), Some(rx), Some(ry)) =
+            (action.window_title, action.relative_x, action.relative_y)
+        {
             let hwnd = find_window(title);
             if !hwnd.is_null() {
-                if focus { unsafe { SetForegroundWindow(hwnd); } }
+                if focus {
+                    unsafe {
+                        SetForegroundWindow(hwnd);
+                    }
+                }
                 if let Some(r) = rect(hwnd) {
                     return (r.left + rx, r.top + ry);
                 }
@@ -95,10 +135,16 @@ mod imp {
     }
 
     pub fn retarget(window_title: Option<&str>, x: i32, y: i32) -> (Option<i32>, Option<i32>) {
-        let Some(title) = window_title else { return (None, None); };
+        let Some(title) = window_title else {
+            return (None, None);
+        };
         let hwnd = find_window(title);
-        if hwnd.is_null() { return (None, None); }
-        let Some(r) = rect(hwnd) else { return (None, None); };
+        if hwnd.is_null() {
+            return (None, None);
+        }
+        let Some(r) = rect(hwnd) else {
+            return (None, None);
+        };
         (Some(x - r.left), Some(y - r.top))
     }
 

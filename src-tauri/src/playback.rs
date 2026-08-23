@@ -1,0 +1,269 @@
+use crate::{
+    input::RuntimeState,
+    models::{FlowAction, PlaybackOptions, RepeatMode, RepeatUnit},
+    platform,
+};
+use enigo::{Button as EnigoButton, Coordinate, Direction, Enigo, Mouse, Settings};
+use std::{
+    sync::{atomic::Ordering, Arc},
+    thread,
+    time::{Duration, Instant},
+};
+use tauri::{AppHandle, Emitter};
+
+fn should_stop(runtime: &RuntimeState, options: &PlaybackOptions, started: Instant) -> bool {
+    runtime.stop_playback.load(Ordering::SeqCst)
+        || (options.repeat_mode == RepeatMode::Duration
+            && started.elapsed().as_millis() >= duration_limit_ms(options))
+        || options
+            .until_time
+            .is_some_and(|deadline| now_epoch_ms() >= deadline)
+}
+
+fn interruptible_sleep(
+    ms: u64,
+    speed: f64,
+    runtime: &RuntimeState,
+    options: &PlaybackOptions,
+    started: Instant,
+) -> bool {
+    if ms == 0 {
+        return true;
+    }
+    let speed = speed.clamp(0.05, 50.0);
+    let actual = ((ms as f64) / speed).round().max(0.0) as u64;
+    let wait_started = Instant::now();
+    while wait_started.elapsed().as_millis() < actual as u128 {
+        if should_stop(runtime, options, started) {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(
+            (actual as u128 - wait_started.elapsed().as_millis()).min(10) as u64,
+        ));
+    }
+    true
+}
+
+fn duration_limit_ms(options: &PlaybackOptions) -> u128 {
+    let mult: u128 = match options.repeat_unit {
+        RepeatUnit::Minutes => 60_000,
+        RepeatUnit::Hours => 3_600_000,
+        RepeatUnit::Seconds => 1_000,
+    };
+    options.repeat_value as u128 * mult
+}
+
+pub fn play(
+    app: AppHandle,
+    runtime: Arc<RuntimeState>,
+    actions: Vec<FlowAction>,
+    options: PlaybackOptions,
+) -> Result<(), String> {
+    if actions.is_empty() {
+        return Err("The selected flow has no actions.".into());
+    }
+    if options.repeat_mode == RepeatMode::Clicks
+        && actions.iter().map(FlowAction::click_count).sum::<u64>() == 0
+    {
+        return Err("Click-count playback requires at least one click.".into());
+    }
+    if runtime.playing.swap(true, Ordering::SeqCst) {
+        return Err("A flow is already playing.".into());
+    }
+    runtime.recording.store(false, Ordering::SeqCst);
+    runtime.stop_playback.store(false, Ordering::SeqCst);
+
+    thread::spawn(move || {
+        let mut enigo = match Enigo::new(&Settings::default()) {
+            Ok(v) => v,
+            Err(e) => {
+                runtime.playing.store(false, Ordering::SeqCst);
+                let _ = app.emit(
+                    "playback-error",
+                    format!("Could not initialize native mouse input: {e}"),
+                );
+                return;
+            }
+        };
+        let original_cursor = if options.restore_cursor {
+            enigo.location().ok()
+        } else {
+            None
+        };
+        let started = Instant::now();
+        let mut cycles = 0u64;
+        let mut click_count = 0u64;
+        let _ = app.emit("playback-state", "playing");
+
+        'outer: loop {
+            for action in &actions {
+                if should_stop(&runtime, &options, started)
+                    || click_limit_reached(&options, click_count)
+                {
+                    break 'outer;
+                }
+                if !play_action(
+                    &mut enigo,
+                    action,
+                    &options,
+                    &runtime,
+                    &app,
+                    &mut click_count,
+                    started,
+                ) {
+                    break 'outer;
+                }
+            }
+            cycles += 1;
+            match options.repeat_mode {
+                RepeatMode::Cycles if cycles >= options.repeat_value.max(1) => break,
+                RepeatMode::Clicks if click_count >= options.repeat_value.max(1) => break,
+                RepeatMode::Duration
+                    if started.elapsed().as_millis() >= duration_limit_ms(&options) =>
+                {
+                    break
+                }
+                RepeatMode::Continuous => {}
+            }
+            if should_stop(&runtime, &options, started) {
+                break;
+            }
+        }
+
+        if let Some((x, y)) = original_cursor {
+            let _ = enigo.move_mouse(x, y, Coordinate::Abs);
+        }
+        runtime.playing.store(false, Ordering::SeqCst);
+        runtime.stop_playback.store(false, Ordering::SeqCst);
+        let _ = app.emit("playback-state", "stopped");
+    });
+    Ok(())
+}
+
+fn now_epoch_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn play_action(
+    enigo: &mut Enigo,
+    action: &FlowAction,
+    options: &PlaybackOptions,
+    runtime: &RuntimeState,
+    app: &AppHandle,
+    click_count: &mut u64,
+    started: Instant,
+) -> bool {
+    match action {
+        FlowAction::Group {
+            actions,
+            repeat_count,
+            ..
+        } => {
+            for _ in 0..*repeat_count {
+                for child in actions {
+                    if should_stop(runtime, options, started)
+                        || click_limit_reached(options, *click_count)
+                    {
+                        return false;
+                    }
+                    if !play_action(enigo, child, options, runtime, app, click_count, started) {
+                        return false;
+                    }
+                }
+            }
+            true
+        }
+        FlowAction::Delay { delay_ms, .. } => {
+            interruptible_sleep(*delay_ms, options.speed, runtime, options, started)
+        }
+        FlowAction::Click { name, delay_ms, .. } => {
+            if should_stop(runtime, options, started)
+                || !interruptible_sleep(*delay_ms, options.speed, runtime, options, started)
+            {
+                return false;
+            }
+            if options.repeat_mode == RepeatMode::Clicks
+                && *click_count >= options.repeat_value.max(1)
+            {
+                return false;
+            }
+            let click = action.as_click().expect("click action");
+            let (x, y) = platform::resolve(&click, options.focus_target_window);
+            if enigo.move_mouse(x, y, Coordinate::Abs).is_err() {
+                let _ = app.emit(
+                    "playback-error",
+                    format!("Could not move mouse for action {name}"),
+                );
+                return false;
+            }
+            if !interruptible_sleep(options.settle_ms, 1.0, runtime, options, started) {
+                return false;
+            }
+            if enigo.button(EnigoButton::Left, Direction::Press).is_err() {
+                let _ = app.emit(
+                    "playback-error",
+                    format!("Could not press mouse for action {name}"),
+                );
+                return false;
+            }
+            // Always release after a press, even when cancellation arrives during the hold.
+            let _ = interruptible_sleep(options.hold_ms, 1.0, runtime, options, started);
+            let _ = enigo.button(EnigoButton::Left, Direction::Release);
+            if runtime.stop_playback.load(Ordering::SeqCst) {
+                return false;
+            }
+            *click_count += 1;
+            let _ = app.emit(
+                "playback-progress",
+                serde_json::json!({"clicks": *click_count}),
+            );
+            true
+        }
+    }
+}
+
+fn click_limit_reached(options: &PlaybackOptions, click_count: u64) -> bool {
+    options.repeat_mode == RepeatMode::Clicks && click_count >= options.repeat_value.max(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::input::RuntimeState;
+
+    fn options(until_time: Option<u64>) -> PlaybackOptions {
+        PlaybackOptions {
+            speed: 1.0,
+            repeat_mode: RepeatMode::Cycles,
+            repeat_value: 1,
+            repeat_unit: RepeatUnit::Seconds,
+            settle_ms: 0,
+            hold_ms: 0,
+            restore_cursor: false,
+            focus_target_window: false,
+            until_time,
+        }
+    }
+
+    #[test]
+    fn expired_deadline_stops_before_first_child() {
+        let runtime = RuntimeState::default();
+        assert!(should_stop(&runtime, &options(Some(0)), Instant::now()));
+    }
+
+    #[test]
+    fn cancellation_stops_waits() {
+        let runtime = RuntimeState::default();
+        runtime.stop_playback.store(true, Ordering::SeqCst);
+        assert!(!interruptible_sleep(
+            1000,
+            1.0,
+            &runtime,
+            &options(None),
+            Instant::now()
+        ));
+    }
+}

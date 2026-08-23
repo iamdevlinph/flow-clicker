@@ -10,7 +10,10 @@ fn state_dir() -> Result<PathBuf, String> {
     #[cfg(target_os = "macos")]
     {
         let home = env::var("HOME").map_err(|_| "HOME is not available".to_string())?;
-        return Ok(PathBuf::from(home).join("Library").join("Application Support").join("FlowClicker"));
+        return Ok(PathBuf::from(home)
+            .join("Library")
+            .join("Application Support")
+            .join("FlowClicker"));
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
@@ -32,7 +35,9 @@ pub fn load() -> Result<Option<String>, String> {
     if !path.exists() {
         return Ok(None);
     }
-    fs::read_to_string(path).map(Some).map_err(|e| e.to_string())
+    fs::read_to_string(path)
+        .map(Some)
+        .map_err(|e| e.to_string())
 }
 
 pub fn save(json: &str) -> Result<(), String> {
@@ -43,9 +48,11 @@ pub fn save(json: &str) -> Result<(), String> {
     let path = dir.join("state.json");
     let tmp = dir.join("state.json.tmp");
     fs::write(&tmp, json).map_err(|e| e.to_string())?;
-    fs::rename(&tmp, &path).or_else(|_| {
-        // Windows cannot always replace an existing file with rename.
-        let _ = fs::remove_file(&path);
-        fs::rename(&tmp, &path)
-    }).map_err(|e| e.to_string())
+    fs::rename(&tmp, &path)
+        .or_else(|_| {
+            // Windows cannot always replace an existing file with rename.
+            let _ = fs::remove_file(&path);
+            fs::rename(&tmp, &path)
+        })
+        .map_err(|e| e.to_string())
 }

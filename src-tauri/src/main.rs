@@ -3,12 +3,19 @@
 mod input;
 mod models;
 mod platform;
+mod playback;
 mod storage;
 
-use crate::{input::RuntimeState, models::{FlowAction, OverlayMove, OverlayPayload, OverlayPoint, PlaybackOptions, PlatformInfo, RecordedClick}};
+use crate::{
+    input::RuntimeState,
+    models::{
+        FlowAction, OverlayMove, OverlayPayload, OverlayPoint, PlatformInfo, PlaybackOptions,
+        RecordedClick,
+    },
+};
 use enigo::{Enigo, Mouse, Settings};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WindowEvent};
 
 #[tauri::command]
 fn load_state() -> Result<Option<String>, String> {
@@ -31,20 +38,36 @@ fn stop_recording(runtime: State<'_, Arc<RuntimeState>>) {
 }
 
 #[tauri::command]
-fn set_hotkeys(runtime: State<'_, Arc<RuntimeState>>, record_hotkey: String, playback_hotkey: String) {
+fn set_hotkeys(
+    runtime: State<'_, Arc<RuntimeState>>,
+    record_hotkey: String,
+    playback_hotkey: String,
+) {
     input::set_hotkeys(runtime.inner().as_ref(), record_hotkey, playback_hotkey);
 }
 
 #[tauri::command]
-fn play_flow(app: AppHandle, runtime: State<'_, Arc<RuntimeState>>, actions_json: String, options_json: String) -> Result<(), String> {
-    let actions: Vec<FlowAction> = serde_json::from_str(&actions_json).map_err(|e| format!("Invalid actions: {e}"))?;
-    let options: PlaybackOptions = serde_json::from_str(&options_json).map_err(|e| format!("Invalid playback options: {e}"))?;
-    input::play(app, runtime.inner().clone(), actions, options)
+fn play_flow(
+    app: AppHandle,
+    runtime: State<'_, Arc<RuntimeState>>,
+    actions_json: String,
+    options_json: String,
+) -> Result<(), String> {
+    let actions: Vec<FlowAction> =
+        serde_json::from_str(&actions_json).map_err(|e| format!("Invalid actions: {e}"))?;
+    for action in &actions {
+        action.validate(false)?;
+    }
+    let options: PlaybackOptions = serde_json::from_str(&options_json)
+        .map_err(|e| format!("Invalid playback options: {e}"))?;
+    playback::play(app, runtime.inner().clone(), actions, options)
 }
 
 #[tauri::command]
 fn stop_playback(runtime: State<'_, Arc<RuntimeState>>) {
-    runtime.stop_playback.store(true, std::sync::atomic::Ordering::SeqCst);
+    runtime
+        .stop_playback
+        .store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -86,52 +109,125 @@ fn platform_info() -> PlatformInfo {
 
 #[tauri::command]
 fn show_overlay(app: AppHandle, actions_json: String, interactive: bool) -> Result<(), String> {
-    let actions: Vec<FlowAction> = serde_json::from_str(&actions_json).map_err(|e| e.to_string())?;
-    let overlay = app.get_webview_window("overlay").ok_or("Overlay window is unavailable")?;
-    let monitor = overlay.primary_monitor().map_err(|e| e.to_string())?.ok_or("No primary monitor found")?;
+    let actions: Vec<FlowAction> =
+        serde_json::from_str(&actions_json).map_err(|e| e.to_string())?;
+    let overlay = app
+        .get_webview_window("overlay")
+        .ok_or("Overlay window is unavailable")?;
+    let monitor = overlay
+        .primary_monitor()
+        .map_err(|e| e.to_string())?
+        .ok_or("No primary monitor found")?;
     let position = *monitor.position();
     let size = *monitor.size();
-    overlay.set_position(PhysicalPosition::new(position.x, position.y)).map_err(|e| e.to_string())?;
-    overlay.set_size(PhysicalSize::new(size.width, size.height)).map_err(|e| e.to_string())?;
+    overlay
+        .set_position(PhysicalPosition::new(position.x, position.y))
+        .map_err(|e| e.to_string())?;
+    overlay
+        .set_size(PhysicalSize::new(size.width, size.height))
+        .map_err(|e| e.to_string())?;
     overlay.set_always_on_top(true).map_err(|e| e.to_string())?;
-    overlay.set_ignore_cursor_events(!interactive).map_err(|e| e.to_string())?;
+    overlay
+        .set_ignore_cursor_events(!interactive)
+        .map_err(|e| e.to_string())?;
 
     let mut points = Vec::new();
     let mut click_no = 0usize;
-    for action in &actions {
-        if let Some(click) = action.as_click() {
-            click_no += 1;
-            let (x, y) = platform::resolve(&click, false);
-            points.push(OverlayPoint {
-                action_id: click.id.to_string(),
-                label: format!("{click_no}"),
-                x,
-                y,
-            });
+    fn collect_clicks<'a>(action: &'a FlowAction, out: &mut Vec<crate::models::ClickRef<'a>>) {
+        match action {
+            FlowAction::Group { actions, .. } => {
+                actions.iter().for_each(|child| collect_clicks(child, out))
+            }
+            _ => {
+                if let Some(click) = action.as_click() {
+                    out.push(click);
+                }
+            }
         }
     }
+    let mut clicks = Vec::new();
+    actions
+        .iter()
+        .for_each(|action| collect_clicks(action, &mut clicks));
+    for click in clicks {
+        click_no += 1;
+        let (x, y) = platform::resolve(&click, false);
+        points.push(OverlayPoint {
+            action_id: click.id.to_string(),
+            label: format!("{click_no}"),
+            x,
+            y,
+        });
+    }
     overlay.show().map_err(|e| e.to_string())?;
-    let payload = OverlayPayload { points, interactive, origin_x: position.x, origin_y: position.y };
-    app.emit_to("overlay", "overlay-points", payload).map_err(|e| e.to_string())?;
+    let payload = OverlayPayload {
+        points,
+        interactive,
+        origin_x: position.x,
+        origin_y: position.y,
+    };
+    app.emit_to("overlay", "overlay-points", payload)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
 fn hide_overlay(app: AppHandle) -> Result<(), String> {
-    let overlay = app.get_webview_window("overlay").ok_or("Overlay window is unavailable")?;
+    let overlay = app
+        .get_webview_window("overlay")
+        .ok_or("Overlay window is unavailable")?;
     overlay.hide().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn overlay_marker_moved(app: AppHandle, action_id: String, screen_x: i32, screen_y: i32) -> Result<(), String> {
-    app.emit_to("main", "overlay-action-moved", OverlayMove { action_id, screen_x, screen_y })
-        .map_err(|e| e.to_string())
+fn overlay_marker_moved(
+    app: AppHandle,
+    action_id: String,
+    screen_x: i32,
+    screen_y: i32,
+) -> Result<(), String> {
+    app.emit_to(
+        "main",
+        "overlay-action-moved",
+        OverlayMove {
+            action_id,
+            screen_x,
+            screen_y,
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn main() {
     let runtime = Arc::new(RuntimeState::default());
     tauri::Builder::default()
         .manage(runtime.clone())
+        .on_window_event({
+            let runtime = runtime.clone();
+            move |window, event| {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    if window.label() == "overlay" {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        return;
+                    }
+                    api.prevent_close();
+                    runtime
+                        .recording
+                        .store(false, std::sync::atomic::Ordering::SeqCst);
+                    runtime
+                        .stop_playback
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    if let Ok(mut mouse) = Enigo::new(&Settings::default()) {
+                        let _ = mouse.button(enigo::Button::Left, enigo::Direction::Release);
+                    }
+                    if let Some(overlay) = window.app_handle().get_webview_window("overlay") {
+                        let _ = overlay.hide();
+                    }
+                    window.app_handle().exit(0);
+                }
+            }
+        })
         .setup(move |app| {
             input::start_listener(app.handle().clone(), runtime.clone());
             Ok(())

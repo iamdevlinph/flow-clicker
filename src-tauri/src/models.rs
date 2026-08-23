@@ -22,7 +22,11 @@ pub struct RecordedClick {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum FlowAction {
     Click {
         id: String,
@@ -40,12 +44,20 @@ pub enum FlowAction {
         name: String,
         delay_ms: u64,
     },
+    Group {
+        id: String,
+        name: String,
+        repeat_count: u64,
+        actions: Vec<FlowAction>,
+    },
 }
 
 impl FlowAction {
     pub fn id(&self) -> &str {
         match self {
-            FlowAction::Click { id, .. } | FlowAction::Delay { id, .. } => id,
+            FlowAction::Click { id, .. }
+            | FlowAction::Delay { id, .. }
+            | FlowAction::Group { id, .. } => id,
         }
     }
 }
@@ -65,12 +77,93 @@ pub struct ClickRef<'a> {
 impl FlowAction {
     pub fn as_click(&self) -> Option<ClickRef<'_>> {
         match self {
-            FlowAction::Click { id, name, screen_x, screen_y, relative_x, relative_y, window_title, delay_ms } => Some(ClickRef {
-                id, name, screen_x: *screen_x, screen_y: *screen_y, relative_x: *relative_x, relative_y: *relative_y, window_title: window_title.as_deref(), delay_ms: *delay_ms,
+            FlowAction::Click {
+                id,
+                name,
+                screen_x,
+                screen_y,
+                relative_x,
+                relative_y,
+                window_title,
+                delay_ms,
+            } => Some(ClickRef {
+                id,
+                name,
+                screen_x: *screen_x,
+                screen_y: *screen_y,
+                relative_x: *relative_x,
+                relative_y: *relative_y,
+                window_title: window_title.as_deref(),
+                delay_ms: *delay_ms,
             }),
-            FlowAction::Delay { .. } => None,
+            FlowAction::Delay { .. } | FlowAction::Group { .. } => None,
         }
     }
+
+    pub fn validate(&self, nested: bool) -> Result<(), String> {
+        if let FlowAction::Group {
+            actions,
+            repeat_count,
+            ..
+        } = self
+        {
+            if nested {
+                return Err("Nested action groups are not supported".into());
+            }
+            if *repeat_count == 0 {
+                return Err("Group repeatCount must be positive".into());
+            }
+            if actions.is_empty() {
+                return Err("Action groups cannot be empty".into());
+            }
+            if actions
+                .iter()
+                .any(|a| matches!(a, FlowAction::Group { .. }))
+            {
+                return Err("Nested action groups are not supported".into());
+            }
+            for action in actions {
+                action.validate(true)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn click_count(&self) -> u64 {
+        match self {
+            FlowAction::Click { .. } => 1,
+            FlowAction::Delay { .. } => 0,
+            FlowAction::Group {
+                actions,
+                repeat_count,
+                ..
+            } => actions.iter().map(Self::click_count).sum::<u64>() * *repeat_count,
+        }
+    }
+
+    pub fn flatten<'a>(&'a self, out: &mut Vec<&'a FlowAction>) {
+        match self {
+            FlowAction::Group { actions, .. } => actions.iter().for_each(|a| a.flatten(out)),
+            _ => out.push(self),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum RepeatMode {
+    Cycles,
+    Clicks,
+    Duration,
+    Continuous,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum RepeatUnit {
+    Seconds,
+    Minutes,
+    Hours,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,11 +172,11 @@ pub struct PlaybackOptions {
     #[serde(default = "default_speed")]
     pub speed: f64,
     #[serde(default = "default_repeat_mode")]
-    pub repeat_mode: String,
+    pub repeat_mode: RepeatMode,
     #[serde(default = "default_repeat_value")]
     pub repeat_value: u64,
     #[serde(default = "default_repeat_unit")]
-    pub repeat_unit: String,
+    pub repeat_unit: RepeatUnit,
     #[serde(default = "default_settle")]
     pub settle_ms: u64,
     #[serde(default = "default_hold")]
@@ -92,15 +185,31 @@ pub struct PlaybackOptions {
     pub restore_cursor: bool,
     #[serde(default = "default_focus_target")]
     pub focus_target_window: bool,
+    #[serde(default)]
+    pub until_time: Option<u64>,
 }
 
-fn default_speed() -> f64 { 1.0 }
-fn default_repeat_mode() -> String { "cycles".into() }
-fn default_repeat_value() -> u64 { 1 }
-fn default_repeat_unit() -> String { "seconds".into() }
-fn default_settle() -> u64 { 12 }
-fn default_hold() -> u64 { 30 }
-fn default_focus_target() -> bool { true }
+fn default_speed() -> f64 {
+    1.0
+}
+fn default_repeat_mode() -> RepeatMode {
+    RepeatMode::Cycles
+}
+fn default_repeat_value() -> u64 {
+    1
+}
+fn default_repeat_unit() -> RepeatUnit {
+    RepeatUnit::Seconds
+}
+fn default_settle() -> u64 {
+    12
+}
+fn default_hold() -> u64 {
+    30
+}
+fn default_focus_target() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -158,6 +267,46 @@ mod tests {
             FlowAction::Click { screen_x: 100, screen_y: 200, relative_x: Some(10), relative_y: Some(20), window_title: Some(title), delay_ms: 250, .. }
                 if title == "Target"
         ));
-        assert!(matches!(&actions[1], FlowAction::Delay { delay_ms: 500, .. }));
+        assert!(matches!(
+            &actions[1],
+            FlowAction::Delay { delay_ms: 500, .. }
+        ));
+    }
+
+    #[test]
+    fn validates_groups_and_counts_repeated_clicks() {
+        let group = FlowAction::Group {
+            id: "g".into(),
+            name: "G".into(),
+            repeat_count: 2,
+            actions: vec![FlowAction::Click {
+                id: "c".into(),
+                name: "C".into(),
+                screen_x: 1,
+                screen_y: 2,
+                relative_x: None,
+                relative_y: None,
+                window_title: None,
+                delay_ms: 0,
+            }],
+        };
+        assert_eq!(group.click_count(), 2);
+        assert!(group.validate(false).is_ok());
+        assert!(FlowAction::Group {
+            id: "e".into(),
+            name: "E".into(),
+            repeat_count: 1,
+            actions: vec![]
+        }
+        .validate(false)
+        .is_err());
+    }
+
+    #[test]
+    fn deserializes_typed_playback_options() {
+        let options: PlaybackOptions =
+            serde_json::from_str(r#"{"repeatMode":"duration","repeatUnit":"minutes"}"#).unwrap();
+        assert_eq!(options.repeat_mode, RepeatMode::Duration);
+        assert_eq!(options.repeat_unit, RepeatUnit::Minutes);
     }
 }
