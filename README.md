@@ -10,7 +10,6 @@ FlowClicker has been redesigned as a cross-platform Tauri desktop app that recor
 - Global click observation and hotkeys through `rdev`.
 - Windows foreground-window-relative coordinates.
 - macOS screen-coordinate path already shares the recorder/playback code; window-relative tracking is a later platform module.
-- A prebuilt Windows x64 **FlowClickerWindowsProbe.exe** so native mouse behavior can be tested immediately.
 
 ## Core features
 
@@ -35,59 +34,35 @@ FlowClicker has been redesigned as a cross-platform Tauri desktop app that recor
 - Passive click-map overlay and interactive draggable-point overlay.
 - Local JSON persistence only.
 
-## Immediate Windows test — no Rust required
-
-Open:
-
-```text
-prebuilt/windows/FlowClickerWindowsProbe.exe
-```
-
-The probe is intentionally small and dependency-free at runtime. It is not the full UI; it verifies the most important new assumption: **does physical Windows mouse input work with the target?**
-
-Controls:
-
-```text
-F8          start / stop recording
-F9          replay with the physical mouse
-F10         clear the captured flow
-Ctrl+Alt+Q  exit
-```
-
-Record a short sequence with F8, stop it with F8, return the target to its starting state, and press F9. The cursor will physically move and click.
-
-## Build the full Tauri app on Windows
+## Build the full Tauri app on Windows from WSL
 
 Prerequisites:
 
-1. Rust stable via rustup.
-2. Microsoft Visual Studio Build Tools with **Desktop development with C++**.
-3. Microsoft Edge WebView2 Runtime (normally already installed on current Windows 10/11).
+1. Ubuntu running under WSL with `sudo` and network access.
+2. Microsoft Edge WebView2 Runtime (normally already installed on current Windows 10/11).
 
-You do **not** need Node/npm for this repository.
+The build script installs missing Ubuntu packages, Rust stable, the
+`x86_64-pc-windows-msvc` target, and `cargo-xwin` as needed. It downloads the
+Microsoft CRT and Windows SDK files required for the MSVC build under
+Microsoft's license. You do **not** need Node/npm or Visual Studio on Windows
+for this repository.
 
 Then run:
 
-```bat
-scripts\build-windows.bat
-```
-
-or directly:
-
-```bat
-cargo build --release --manifest-path src-tauri\Cargo.toml
+```bash
+./scripts/build-windows-wsl.sh
 ```
 
 The raw executable will be:
 
 ```text
-src-tauri\target\release\flowclicker.exe
+src-tauri/target/x86_64-pc-windows-msvc/release/flowclicker.exe
 ```
 
 The build script also copies it to:
 
 ```text
-dist\FlowClicker.exe
+dist/FlowClicker.exe
 ```
 
 The first Cargo build downloads the Rust crates listed in `src-tauri/Cargo.toml`; end users do not need those packages installed separately.
@@ -135,10 +110,6 @@ src-tauri/
     models.rs                 serialized action/playback models
     platform.rs               Windows window-relative layer; macOS fallback
     storage.rs                local JSON persistence
-
-prebuilt/windows/
-  FlowClickerWindowsProbe.exe
-  probe_source/main.go
 
 AGENTS.md                     Codex-oriented continuation notes
 ```

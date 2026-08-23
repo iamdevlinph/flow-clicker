@@ -22,7 +22,7 @@ pub struct RecordedClick {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum FlowAction {
     Click {
         id: String,
@@ -136,4 +136,28 @@ pub struct PlatformInfo {
     pub global_recording_supported: bool,
     pub window_relative_supported: bool,
     pub accessibility_note: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FlowAction;
+
+    #[test]
+    fn deserializes_frontend_flow_actions() {
+        let actions: Vec<FlowAction> = serde_json::from_str(
+            r#"[
+                {"type":"click","id":"click-1","name":"Click","screenX":100,"screenY":200,"relativeX":10,"relativeY":20,"windowTitle":"Target","delayMs":250},
+                {"type":"delay","id":"delay-1","name":"Wait","delayMs":500}
+            ]"#,
+        )
+        .unwrap();
+
+        assert_eq!(actions.len(), 2);
+        assert!(matches!(
+            &actions[0],
+            FlowAction::Click { screen_x: 100, screen_y: 200, relative_x: Some(10), relative_y: Some(20), window_title: Some(title), delay_ms: 250, .. }
+                if title == "Target"
+        ));
+        assert!(matches!(&actions[1], FlowAction::Delay { delay_ms: 500, .. }));
+    }
 }

@@ -35,7 +35,7 @@ FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mo
 - Before user-facing changes, inspect the closest existing UI pattern and reuse its structure, styling, interactions, responsive behavior, and native accessibility semantics. Compare the rendered result when tooling permits and report when it does not.
 - For every new or materially changed feature, keep entrypoints focused on composition, move independently understandable concerns into descriptive feature-local files, run targeted validation, and obtain a `code-reviewer` structural review.
 - Use the repository's existing Cargo and platform build conventions. Run the smallest check that validates the change; documentation-only edits do not require an application build.
-- Get explicit approval before running physical playback, global input hooks, or prebuilt probes because they can observe or control real OS input.
+- Get explicit approval before running physical playback or global input hooks because they can observe or control real OS input.
 - When `TEMPLATE_AGENTS.md` changes or `codex-kit project status` requires reconciliation, use the global `codex-kit-reconcile-agents` skill; never replace this file wholesale or run `codex-kit project sync` on the user's behalf.
 
 ## Suggested next work

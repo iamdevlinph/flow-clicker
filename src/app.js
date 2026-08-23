@@ -294,7 +294,7 @@
   async function runFlow() {
     const flow = currentFlow();
     if (!flow?.actions?.length) return toast('Nothing to run', 'Add at least one click or delay action.', 'error');
-    if (!invoke) return toast('Playback requires the desktop build', 'Use the prebuilt Windows probe to test native mouse input.', 'error');
+    if (!invoke) return toast('Playback requires the desktop build', 'Build and run the FlowClicker desktop app to use native mouse input.', 'error');
     const options = {
       speed: Number(state.settings.playbackSpeed) || 1,
       repeatMode: state.settings.repeatMode,
