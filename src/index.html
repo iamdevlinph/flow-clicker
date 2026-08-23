@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowClicker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="appShell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">FC</div>
+        <div>
+          <h1>FlowClicker <span class="version">v2.0.0</span></h1>
+          <p>Physical mouse flow recorder</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="status-pill" id="runtimeStatus"><span class="dot"></span><span>Ready</span></div>
+        <button class="ghost" id="saveNowBtn">Save now</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel flow-library">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Library</span>
+            <h2>Flows</h2>
+          </div>
+          <button class="icon-btn" id="newFlowBtn" title="New flow">＋</button>
+        </div>
+
+        <label class="search-box">
+          <span>⌕</span>
+          <input id="flowSearch" placeholder="Search flows" />
+        </label>
+
+        <div class="combine-hint">
+          <strong>Combine mode</strong>
+          <span>Check flows in the order you want them merged. Sources stay unchanged.</span>
+        </div>
+
+        <div id="flowList" class="flow-list"></div>
+
+        <div class="library-actions">
+          <button class="primary wide" id="combineCheckedBtn" disabled>Combine checked</button>
+          <div id="combineQueue" class="combine-queue empty">No flows checked</div>
+        </div>
+      </aside>
+
+      <section class="panel editor-panel">
+        <div class="panel-head editor-head">
+          <div class="flow-title-wrap">
+            <span class="eyebrow">Editor</span>
+            <input id="flowName" class="flow-name" value="Untitled flow" />
+            <div class="flow-meta" id="flowMeta">0 actions · 0 clicks</div>
+          </div>
+          <div class="head-actions">
+            <button class="danger-ghost" id="deleteFlowBtn">Delete</button>
+          </div>
+        </div>
+
+        <div class="transport">
+          <button class="record" id="recordBtn"><span class="record-dot"></span>Record</button>
+          <button id="stopRecordBtn" disabled>Stop record</button>
+          <div class="transport-divider"></div>
+          <button class="play" id="runBtn">▶ Run flow</button>
+          <button id="stopRunBtn" disabled>■ Stop</button>
+          <div class="transport-divider"></div>
+          <button id="showMapBtn">Show click map</button>
+          <button id="editPointsBtn">Edit click points</button>
+          <button id="hideMapBtn" disabled>Hide map</button>
+        </div>
+
+        <div class="editor-toolbar">
+          <div class="toolbar-group">
+            <button id="addClickBtn">＋ Click</button>
+            <button id="addDelayBtn">＋ Delay</button>
+            <button class="accent-outline" id="importActionsBtn">⇣ Import actions</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="moveUpBtn">↑</button>
+            <button id="moveDownBtn">↓</button>
+            <button id="duplicateActionBtn">Duplicate</button>
+            <button class="danger-ghost" id="deleteActionBtn">Delete action</button>
+          </div>
+        </div>
+
+        <div class="action-table-wrap">
+          <table class="action-table">
+            <thead>
+              <tr>
+                <th class="col-check"></th>
+                <th class="col-no">#</th>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Delay before</th>
+                <th>Target window</th>
+              </tr>
+            </thead>
+            <tbody id="actionRows"></tbody>
+          </table>
+          <div class="empty-state" id="actionsEmpty">
+            <div class="empty-icon">＋</div>
+            <h3>No actions yet</h3>
+            <p>Record clicks, add an action manually, or import actions from another flow.</p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel settings-panel">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Playback</span>
+            <h2>Run settings</h2>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <label class="field">
+            <span>Playback speed</span>
+            <div class="inline-field"><input id="playbackSpeed" type="number" min="0.05" max="50" step="0.05" /><span>×</span></div>
+          </label>
+          <label class="field">
+            <span>Repeat mode</span>
+            <select id="repeatMode">
+              <option value="cycles">Cycles</option>
+              <option value="clicks">Total clicks</option>
+              <option value="duration">Duration</option>
+              <option value="continuous">Continuous</option>
+            </select>
+          </label>
+          <div class="repeat-value-row" id="repeatValueRow">
+            <label class="field grow"><span>Value</span><input id="repeatValue" type="number" min="1" step="1" /></label>
+            <label class="field grow" id="repeatUnitField"><span>Unit</span><select id="repeatUnit"><option>seconds</option><option>minutes</option><option>hours</option></select></label>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-title">Physical mouse timing</div>
+          <div class="two-col">
+            <label class="field"><span>Settle</span><div class="inline-field"><input id="settleMs" type="number" min="0" max="5000" /><span>ms</span></div></label>
+            <label class="field"><span>Hold</span><div class="inline-field"><input id="holdMs" type="number" min="0" max="5000" /><span>ms</span></div></label>
+          </div>
+          <label class="toggle"><input id="restoreCursor" type="checkbox" /><span>Restore cursor after playback</span></label>
+          <label class="toggle"><input id="focusTarget" type="checkbox" /><span>Focus recorded target window</span></label>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-title">Recording & hotkeys</div>
+          <label class="field"><span>Record toggle</span><input id="recordHotkey" placeholder="Alt+Shift+R" /></label>
+          <label class="field"><span>Playback toggle</span><input id="playbackHotkey" placeholder="Alt+Shift+P" /></label>
+          <p class="microcopy">Global hotkeys work while another application is focused. Recording stores clicks and click delays only.</p>
+        </div>
+
+        <div class="setting-card platform-card">
+          <div class="setting-title">Platform</div>
+          <div class="platform-line"><span>OS</span><strong id="platformOs">Detecting…</strong></div>
+          <div class="platform-line"><span>Mouse input</span><strong id="platformMouse">—</strong></div>
+          <div class="platform-line"><span>Global capture</span><strong id="platformCapture">—</strong></div>
+          <div class="platform-line"><span>Window-relative</span><strong id="platformRelative">—</strong></div>
+          <div id="platformNote" class="platform-note hidden"></div>
+        </div>
+
+        <div class="warning-card">
+          <strong>Physical mouse mode</strong>
+          <span>Playback moves and clicks the real cursor. Keep the target visible and avoid using the mouse while a flow runs.</span>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="importModal">
+    <div class="modal import-modal">
+      <div class="modal-head">
+        <div><span class="eyebrow">Copy from another flow</span><h2>Import actions</h2></div>
+        <button class="icon-btn" id="closeImportBtn">×</button>
+      </div>
+      <div class="import-grid">
+        <label class="field"><span>Source flow</span><select id="importSourceFlow"></select></label>
+        <label class="field"><span>Insert at</span><select id="importPosition"><option value="end">End of current flow</option><option value="beginning">Beginning</option><option value="after">After selected action</option></select></label>
+      </div>
+      <div class="import-note">Imported actions are independent copies. Editing or deleting them will never modify the source flow.</div>
+      <div class="import-actions-head"><label><input type="checkbox" id="importSelectAll" checked /> Select all</label><span id="importCount">0 selected</span></div>
+      <div id="importActionList" class="import-action-list"></div>
+      <div class="modal-actions"><button id="cancelImportBtn">Cancel</button><button class="primary" id="confirmImportBtn">Import selected</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="combineModal">
+    <div class="modal small-modal">
+      <div class="modal-head"><div><span class="eyebrow">Create a new flow</span><h2>Combine checked flows</h2></div><button class="icon-btn" id="closeCombineBtn">×</button></div>
+      <label class="field"><span>New flow name</span><input id="combinedFlowName" /></label>
+      <div id="combineSummary" class="combine-summary"></div>
+      <div class="import-note">Source flows are not changed. Every action is copied with a new ID.</div>
+      <div class="modal-actions"><button id="cancelCombineBtn">Cancel</button><button class="primary" id="confirmCombineBtn">Create combined flow</button></div>
+    </div>
+  </div>
+
+  <div id="toastStack" class="toast-stack"></div>
+  <script src="app.js"></script>
+</body>
+</html>
