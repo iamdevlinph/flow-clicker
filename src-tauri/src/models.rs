@@ -52,26 +52,14 @@ pub enum FlowAction {
     },
 }
 
-impl FlowAction {
-    pub fn id(&self) -> &str {
-        match self {
-            FlowAction::Click { id, .. }
-            | FlowAction::Delay { id, .. }
-            | FlowAction::Group { id, .. } => id,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ClickRef<'a> {
     pub id: &'a str,
-    pub name: &'a str,
     pub screen_x: i32,
     pub screen_y: i32,
     pub relative_x: Option<i32>,
     pub relative_y: Option<i32>,
     pub window_title: Option<&'a str>,
-    pub delay_ms: u64,
 }
 
 impl FlowAction {
@@ -79,22 +67,19 @@ impl FlowAction {
         match self {
             FlowAction::Click {
                 id,
-                name,
                 screen_x,
                 screen_y,
                 relative_x,
                 relative_y,
                 window_title,
-                delay_ms,
+                ..
             } => Some(ClickRef {
                 id,
-                name,
                 screen_x: *screen_x,
                 screen_y: *screen_y,
                 relative_x: *relative_x,
                 relative_y: *relative_y,
                 window_title: window_title.as_deref(),
-                delay_ms: *delay_ms,
             }),
             FlowAction::Delay { .. } | FlowAction::Group { .. } => None,
         }
@@ -138,13 +123,6 @@ impl FlowAction {
                 repeat_count,
                 ..
             } => actions.iter().map(Self::click_count).sum::<u64>() * *repeat_count,
-        }
-    }
-
-    pub fn flatten<'a>(&'a self, out: &mut Vec<&'a FlowAction>) {
-        match self {
-            FlowAction::Group { actions, .. } => actions.iter().for_each(|a| a.flatten(out)),
-            _ => out.push(self),
         }
     }
 }

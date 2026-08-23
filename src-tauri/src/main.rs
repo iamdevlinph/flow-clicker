@@ -180,6 +180,18 @@ fn hide_overlay(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn show_editor(app: AppHandle) -> Result<(), String> {
+    let editor = app.get_webview_window("editor").ok_or("Editor window is unavailable")?;
+    editor.show().map_err(|e| e.to_string())?;
+    editor.set_focus().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn hide_editor(app: AppHandle) -> Result<(), String> {
+    app.get_webview_window("editor").ok_or("Editor window is unavailable")?.hide().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn overlay_marker_moved(
     app: AppHandle,
     action_id: String,
@@ -206,7 +218,7 @@ fn main() {
             let runtime = runtime.clone();
             move |window, event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
-                    if window.label() == "overlay" {
+                    if matches!(window.label(), "overlay" | "editor") {
                         api.prevent_close();
                         let _ = window.hide();
                         return;
@@ -245,6 +257,8 @@ fn main() {
             platform_info,
             show_overlay,
             hide_overlay,
+            show_editor,
+            hide_editor,
             overlay_marker_moved,
         ])
         .run(tauri::generate_context!())

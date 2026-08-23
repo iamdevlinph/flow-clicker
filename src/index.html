@@ -19,7 +19,6 @@
       <div class="topbar-actions">
         <nav class="top-tabs" aria-label="Main sections"><button class="top-tab active" id="flowsTab">Flows</button><button class="top-tab" id="settingsTab">Settings</button></nav>
         <div class="status-pill" id="runtimeStatus"><span class="dot"></span><span>Ready</span></div>
-        <button class="ghost" id="saveNowBtn">Save now</button>
       </div>
     </header>
 
@@ -30,7 +29,7 @@
             <span class="eyebrow">Library</span>
             <h2>Flows</h2>
           </div>
-          <div class="library-menu-wrap"><button class="icon-btn" id="newFlowBtn" title="New flow">＋</button><button class="icon-btn" id="libraryMenuBtn" title="Library menu">⋯</button><div id="libraryMenu" class="context-menu hidden"><button id="newGroupBtn">New group</button><button id="combineMenuBtn">Combine flows</button></div></div>
+          <div class="library-menu-wrap"><button class="icon-btn" id="newFlowBtn" title="New flow" aria-label="New flow">＋</button><button class="icon-btn" id="libraryMenuBtn" title="Actions" aria-label="Actions" aria-haspopup="menu" aria-expanded="false">⋯</button><div id="libraryMenu" class="context-menu hidden" role="menu"><button id="newGroupBtn" role="menuitem">New group</button><button id="combineMenuBtn" role="menuitem">Combine Flows</button></div></div>
         </div>
 
         <label class="search-box">
@@ -38,114 +37,17 @@
           <input id="flowSearch" placeholder="Search flows" />
         </label>
 
-        <div class="combine-hint"><strong>Flow Library</strong><span>Drag to reorder flows or move them between groups.</span></div>
-
         <div id="flowList" class="flow-list"></div>
 
-        <div class="library-actions">
-          <button class="primary wide" id="combineCheckedBtn" disabled>Combine checked</button>
-          <div id="combineQueue" class="combine-queue empty">No flows checked</div>
-        </div>
       </aside>
 
-      <section class="panel editor-panel">
-        <div class="panel-head editor-head">
-          <div class="flow-title-wrap">
-            <span class="eyebrow">Editor</span>
-            <input id="flowName" class="flow-name" value="Untitled flow" />
-            <div class="flow-meta" id="flowMeta">0 actions · 0 clicks</div>
-          </div>
-          <div class="head-actions">
-            <button id="flowSettingsBtn">Settings</button>
-            <button class="danger-ghost" id="deleteFlowBtn">Delete</button>
-          </div>
-        </div>
-
-        <div class="transport">
-          <button class="record" id="recordBtn"><span class="record-dot"></span>Record</button>
-          <button id="stopRecordBtn" disabled>Stop record</button>
-          <div class="transport-divider"></div>
-          <button class="play" id="runBtn">▶ Run flow</button>
-          <button id="stopRunBtn" disabled>■ Stop</button>
-          <div class="transport-divider"></div>
-          <button id="showMapBtn" aria-pressed="false">Show click map</button>
-        </div>
-
-        <div class="editor-toolbar">
-          <div class="toolbar-group">
-            <button id="addClickBtn">＋ Click</button>
-            <button id="addDelayBtn">＋ Delay</button>
-            <button id="groupActionsBtn">Group selected</button><button id="ungroupActionBtn">Ungroup</button>
-            <button class="accent-outline" id="importActionsBtn">⇣ Import actions</button>
-          </div>
-          <div class="toolbar-group">
-            <button id="moveUpBtn">↑</button>
-            <button id="moveDownBtn">↓</button>
-            <button id="duplicateActionBtn">Duplicate</button>
-            <button class="danger-ghost" id="deleteActionBtn">Delete action</button>
-          </div>
-        </div>
-
-        <div class="action-table-wrap">
-          <table class="action-table">
-            <thead>
-              <tr>
-                <th class="col-check"></th>
-                <th class="col-no">#</th>
-                <th>Type</th>
-                <th>Name</th>
-                <th>Position</th>
-                <th>Delay before</th>
-                <th>Target window</th>
-              </tr>
-            </thead>
-            <tbody id="actionRows"></tbody>
-          </table>
-          <div class="empty-state" id="actionsEmpty">
-            <div class="empty-icon">＋</div>
-            <h3>No actions yet</h3>
-            <p>Record clicks, add an action manually, or import actions from another flow.</p>
-          </div>
-        </div>
-      </section>
-
-      <aside class="panel settings-panel">
+      <aside class="panel settings-panel" id="settingsPanel" aria-labelledby="settingsHeading">
         <div class="panel-head">
           <div>
-            <span class="eyebrow">Playback</span>
-            <h2>Run settings</h2>
+            <span class="eyebrow">Application</span>
+            <h2 id="settingsHeading">Settings</h2>
           </div>
-        </div>
-
-        <div class="setting-card">
-          <label class="field">
-            <span>Playback speed</span>
-            <div class="inline-field"><input id="playbackSpeed" type="number" min="0.05" max="50" step="0.05" /><span>×</span></div>
-          </label>
-          <label class="field">
-            <span>Repeat mode</span>
-            <select id="repeatMode">
-              <option value="cycles">Cycles</option>
-              <option value="clicks">Total clicks</option>
-              <option value="duration">Duration</option>
-              <option value="continuous">Continuous</option>
-            </select>
-          </label>
-          <div class="repeat-value-row" id="repeatValueRow">
-            <label class="field grow"><span>Value</span><input id="repeatValue" type="number" min="1" step="1" /></label>
-            <label class="field grow" id="repeatUnitField"><span>Unit</span><select id="repeatUnit"><option>seconds</option><option>minutes</option><option>hours</option></select></label>
-          </div>
-          <label class="field"><span>Stop at (local time)</span><input id="untilTime" type="time" /></label>
-        </div>
-
-        <div class="setting-card">
-          <div class="setting-title">Physical mouse timing</div>
-          <div class="two-col">
-            <label class="field"><span>Settle</span><div class="inline-field"><input id="settleMs" type="number" min="0" max="5000" /><span>ms</span></div></label>
-            <label class="field"><span>Hold</span><div class="inline-field"><input id="holdMs" type="number" min="0" max="5000" /><span>ms</span></div></label>
-          </div>
-          <label class="toggle"><input id="restoreCursor" type="checkbox" /><span>Restore cursor after playback</span></label>
-          <label class="toggle"><input id="focusTarget" type="checkbox" /><span>Focus recorded target window</span></label>
+          <button class="icon-btn settings-close" id="closeSettingsBtn" title="Close settings">×</button>
         </div>
 
         <div class="setting-card">
@@ -168,10 +70,18 @@
     </main>
   </div>
 
+  <div class="modal-backdrop hidden" id="flowSettingsModal">
+    <div class="modal flow-settings-modal" role="dialog" aria-modal="true" aria-labelledby="flowSettingsHeading">
+      <div class="modal-head"><div><span class="eyebrow">Selected flow</span><h2 id="flowSettingsHeading">Playback settings</h2></div><button class="icon-btn" id="closeFlowSettingsBtn" aria-label="Close playback settings">×</button></div>
+      <div class="setting-card"><label class="field"><span>Playback speed</span><div class="inline-field"><input id="playbackSpeed" type="number" min="0.05" max="50" step="0.05" /><span>×</span></div></label><label class="field"><span>Repeat mode</span><select id="repeatMode"><option value="cycles">Cycles</option><option value="clicks">Total clicks</option><option value="duration">Duration</option><option value="continuous">Continuous</option></select></label><div class="repeat-value-row" id="repeatValueRow"><label class="field grow"><span>Value</span><input id="repeatValue" type="number" min="1" step="1" /></label><label class="field grow" id="repeatUnitField"><span>Unit</span><select id="repeatUnit"><option>seconds</option><option>minutes</option><option>hours</option></select></label></div><label class="field"><span>Stop at (local time)</span><input id="untilTime" type="time" /></label></div>
+      <div class="setting-card"><div class="setting-title">Physical mouse timing</div><div class="two-col"><label class="field"><span>Settle</span><div class="inline-field"><input id="settleMs" type="number" min="0" max="5000" /><span>ms</span></div></label><label class="field"><span>Hold</span><div class="inline-field"><input id="holdMs" type="number" min="0" max="5000" /><span>ms</span></div></label></div><label class="toggle"><input id="restoreCursor" type="checkbox" /><span>Restore cursor after playback</span></label><label class="toggle"><input id="focusTarget" type="checkbox" /><span>Focus recorded target window</span></label></div>
+    </div>
+  </div>
+
   <div class="modal-backdrop hidden" id="importModal">
-    <div class="modal import-modal">
+    <div class="modal import-modal" role="dialog" aria-modal="true" aria-labelledby="importHeading">
       <div class="modal-head">
-        <div><span class="eyebrow">Copy from another flow</span><h2>Import actions</h2></div>
+        <div><span class="eyebrow">Copy from another flow</span><h2 id="importHeading">Import actions</h2></div>
         <button class="icon-btn" id="closeImportBtn">×</button>
       </div>
       <div class="import-grid">
@@ -186,18 +96,19 @@
   </div>
 
   <div class="modal-backdrop hidden" id="combineModal">
-    <div class="modal small-modal">
-      <div class="modal-head"><div><span class="eyebrow">Create a new flow</span><h2>Combine checked flows</h2></div><button class="icon-btn" id="closeCombineBtn">×</button></div>
+    <div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="combineHeading">
+      <div class="modal-head"><div><span class="eyebrow">Create a new flow</span><h2 id="combineHeading">Combine Flows</h2></div><button class="icon-btn" id="closeCombineBtn">×</button></div>
       <label class="field"><span>New flow name</span><input id="combinedFlowName" /></label>
+      <div id="combineFlowList" class="combine-flow-list"></div>
       <div id="combineSummary" class="combine-summary"></div>
-      <div class="import-note">Source flows are not changed. Every action is copied with a new ID.</div>
+      <div class="import-note">Choose at least two flows. They are copied in selection order with fresh action IDs.</div>
       <div class="modal-actions"><button id="cancelCombineBtn">Cancel</button><button class="primary" id="confirmCombineBtn">Create combined flow</button></div>
     </div>
   </div>
 
-  <div class="modal-backdrop hidden" id="groupModal"><div class="modal small-modal"><div class="modal-head"><div><span class="eyebrow">Action group</span><h2>Edit group</h2></div><button class="icon-btn" id="closeGroupBtn">×</button></div><label class="field"><span>Name</span><input id="groupNameInput" /></label><label class="field"><span>Repeat count</span><input id="groupRepeatInput" type="number" min="1" step="1" /></label><div class="modal-actions"><button id="cancelGroupBtn">Cancel</button><button class="primary" id="saveGroupBtn">Save group</button></div></div></div>
+  <div class="modal-backdrop hidden" id="groupModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="groupHeading"><div class="modal-head"><div><span class="eyebrow">Action group</span><h2 id="groupHeading">Edit group</h2></div><button class="icon-btn" id="closeGroupBtn">×</button></div><label class="field"><span>Name</span><input id="groupNameInput" /></label><label class="field"><span>Repeat count</span><input id="groupRepeatInput" type="number" min="1" step="1" /></label><div class="modal-actions"><button id="cancelGroupBtn">Cancel</button><button class="primary" id="saveGroupBtn">Save group</button></div></div></div>
 
-  <div id="toastStack" class="toast-stack"></div>
+  <div id="toastStack" class="toast-stack" aria-live="polite"></div>
   <script type="module" src="app.js"></script>
 </body>
 </html>

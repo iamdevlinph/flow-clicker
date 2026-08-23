@@ -1,0 +1,11 @@
+html, body { min-width: 760px; min-height: 100%; } body { overflow: hidden; }
+.action-table th:nth-child(1), .action-table td:nth-child(1) { width: 32px; }
+.action-table th:nth-child(2), .action-table td:nth-child(2) { width: 72px; }
+.action-table th:nth-child(4), .action-table td:nth-child(4), .action-table th:nth-child(5), .action-table td:nth-child(5) { width: 74px; }
+.action-table th:nth-child(6), .action-table td:nth-child(6) { width: 88px; }
+.action-table .compact-input { min-width: 0; width: 100%; }
+.delay-input { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.delay-input .compact-input { width: 56px; }
+.editor-window { height: 100vh; display: flex; flex-direction: column; padding: 16px; background: var(--panel); }
+.editor-window-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.editor-window .action-table-wrap { min-height: 0; }

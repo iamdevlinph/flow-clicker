@@ -1,15 +1,16 @@
 import { actionClickCount, migrateState as migratePersistedState, nextDeadline } from './state-model.mjs';
+import { selectedFlows, selectionName } from './combine-selection.mjs';
+import { moveFlow, moveFlowByKey } from './flow-ordering.mjs';
+import { playbackDefaults, playbackFromForm, playbackToForm } from './playback-form.mjs';
+import { renderFlowLibrary } from './flow-library.mjs';
 
 (() => {
   const T = window.__TAURI__ || null;
   const invoke = T?.core?.invoke;
   const listen = T?.event?.listen;
+  const emitTo = T?.event?.emitTo;
   const $ = (id) => document.getElementById(id);
 
-  const playbackDefaults = {
-    playbackSpeed: 1, repeatMode: 'cycles', repeatValue: 1, repeatUnit: 'seconds',
-    settleMs: 12, holdMs: 30, restoreCursor: false, focusTargetWindow: true, untilTime: null,
-  };
   const defaults = {
     version: 3,
     selectedFlowId: null,
@@ -30,6 +31,9 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
   let mapVisible = false;
   let saveTimer = null;
   let importSelection = new Set();
+  const dialogFocus = new Map();
+  let editorOpen = false;
+  let restoreEditor = false;
 
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const nowIso = () => new Date().toISOString();
@@ -94,6 +98,7 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
     }
     if (!state.flows.length) newFlow('My first flow');
     if (!state.flows.some((f) => f.id === state.selectedFlowId)) state.selectedFlowId = state.flows[0].id;
+    setView('compact');
     renderAll();
     syncHotkeys();
     detectPlatform();
@@ -146,67 +151,89 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
 
   function renderAll() {
     renderFlowList();
-    renderEditor();
+    publishEditorSnapshot();
     renderSettings();
+  }
+
+  function setView(view) {
+    document.body.classList.toggle('settings-view', view === 'settings');
+    if (view !== 'settings') closeSettingsModal();
+  }
+
+  function editorSnapshot() {
+    const flow = currentFlow();
+    return flow ? structuredClone({ flow, selectedActionId, selectedActionIds: [...selectedActionIds], recording, playing, mapVisible }) : null;
+  }
+
+  function publishEditorSnapshot() {
+    const snapshot = editorSnapshot();
+    if (snapshot && emitTo) emitTo('editor', 'editor-snapshot', snapshot).catch(() => {});
+  }
+
+  async function openEditor(flow) {
+    if (!flow) return;
+    state.selectedFlowId = flow.id;
+    selectedActionId = null;
+    setView('compact');
+    try { await invoke('show_editor'); editorOpen = true; } catch (err) { toast('Editor unavailable', String(err), 'error'); return; }
+    publishEditorSnapshot();
+  }
+
+  async function closeEditor() { editorOpen = false; try { await invoke('hide_editor'); } catch (_) {} }
+  function suspendEditorForModal() { if (!editorOpen) return; restoreEditor = true; invoke('hide_editor').catch(() => {}); }
+  async function restoreEditorAfterModal() { if (!restoreEditor) return; restoreEditor = false; try { await invoke('show_editor'); publishEditorSnapshot(); } catch (_) {} }
+
+  function applyEditorIntent(intent = {}) {
+    const flow = currentFlow();
+    if (intent.type === 'close') return closeEditor();
+    if (!flow) return;
+    if (intent.type === 'select-action') { selectedActionId = intent.actionId || null; selectedActionIds = new Set(intent.multi ? intent.actionIds || [] : (intent.actionId ? [intent.actionId] : [])); return publishEditorSnapshot(); }
+    const action = intent.actionId ? findAction(flow.actions, intent.actionId) : null;
+    if (intent.type === 'rename') flow.name = String(intent.value || '').trim() || 'Untitled flow';
+    if (intent.type === 'action-update' && action) {
+      if (intent.field === 'name') action.name = String(intent.value || '').trim() || action.name;
+      if (intent.field === 'delayMs') action.delayMs = Math.max(0, Number(intent.value) || 0);
+      if (intent.field === 'screenX') action.screenX = Math.round(Number(intent.value) || 0);
+      if (intent.field === 'screenY') action.screenY = Math.round(Number(intent.value) || 0);
+    }
+    if (intent.type === 'add-click') flow.actions.push({ id: uid(), type: 'click', name: `Click ${clickCount(flow) + 1}`, screenX: 0, screenY: 0, delayMs: 0 });
+    if (intent.type === 'add-delay') flow.actions.push({ id: uid(), type: 'delay', name: `Delay ${flow.actions.filter((a) => a.type === 'delay').length + 1}`, delayMs: 500 });
+    if (intent.type === 'delete-action' && action) flow.actions = flow.actions.filter((candidate) => candidate.id !== action.id);
+    if (intent.type === 'move-action' && action) { const index = flow.actions.indexOf(action); const next = index + Number(intent.delta || 0); if (next >= 0 && next < flow.actions.length) [flow.actions[index], flow.actions[next]] = [flow.actions[next], flow.actions[index]]; }
+    if (intent.type === 'duplicate-action' && action) { const copy = deepActionCopy(action, flow.actions.indexOf(action)); flow.actions.splice(flow.actions.indexOf(action) + 1, 0, copy); }
+    if (intent.type === 'settings') return openFlowSettings(flow);
+    if (intent.type === 'record') return startRecording();
+    if (intent.type === 'stop-record') return stopRecording();
+    if (intent.type === 'run') return runFlow();
+    if (intent.type === 'stop') return stopPlayback();
+    if (intent.type === 'map') return mapVisible ? hideOverlay() : showOverlay(true);
+    if (intent.type === 'import') return openImportModal();
+    touchFlow(flow); renderAll();
+  }
+
+  function openDialog(id, focusId) {
+    dialogFocus.set(id, document.activeElement);
+    $('appShell').inert = true;
+    $(id).classList.remove('hidden');
+    $(focusId)?.focus();
+  }
+
+  function closeDialog(id) {
+    $(id)?.classList.add('hidden');
+    if (!document.querySelector('.modal-backdrop:not(.hidden)')) $('appShell').inert = false;
+    dialogFocus.get(id)?.focus?.();
+    dialogFocus.delete(id);
+    restoreEditorAfterModal();
   }
 
   function renderFlowList() {
     const search = $('flowSearch').value.trim().toLowerCase();
-    const list = $('flowList');
-    list.innerHTML = '';
-    const groups = [{ id: null, name: 'Ungrouped' }, ...(state.groups || [])];
-    for (const group of groups) {
-      const heading = document.createElement('div'); heading.className = 'library-group'; heading.dataset.groupId = group.id || '';
-      heading.innerHTML = `<div class="library-group-head"><strong>${escapeHtml(group.name)}</strong><span><button class="group-rename" title="Rename group">✎</button>${group.id ? '<button class="group-delete" title="Delete group">×</button>' : ''}</span></div><div class="group-flow-list"></div>`;
-      const groupList = heading.querySelector('.group-flow-list');
-      heading.querySelector('.group-rename').addEventListener('click', () => renameLibraryGroup(group.id));
-      heading.querySelector('.group-delete')?.addEventListener('click', () => deleteLibraryGroup(group.id));
-      list.appendChild(heading);
-      for (const flow of state.flows.filter((candidate) => (candidate.groupId ?? null) === group.id)) {
-      if (search && !flow.name.toLowerCase().includes(search)) continue;
-      const rank = combineQueue.indexOf(flow.id);
-      const row = document.createElement('div');
-      row.className = `flow-row${flow.id === state.selectedFlowId ? ' selected' : ''}`; row.draggable = true;
-      row.dataset.flowId = flow.id;
-      row.innerHTML = `
-        <input class="combine-check" type="checkbox" ${rank >= 0 ? 'checked' : ''} title="Include in combined flow" />
-        <div class="flow-main"><div class="flow-row-name">${escapeHtml(flow.name)}</div><div class="flow-row-meta">${flow.actions.length} actions · ${clickCount(flow)} clicks · ${(totalDelay(flow)/1000).toFixed(1)}s delays</div></div>
-        <div class="flow-row-actions"><button class="flow-settings" title="Flow settings">⚙</button><span class="combine-rank ${rank < 0 ? 'empty' : ''}">${rank >= 0 ? rank + 1 : '·'}</span></div>`;
-      row.addEventListener('click', (e) => {
-        if (e.target.classList.contains('combine-check')) return;
-        hideOverlay(); state.selectedFlowId = flow.id;
-        selectedActionId = null;
-        scheduleSave();
-        renderAll();
-      });
-      row.querySelector('.combine-check').addEventListener('change', (e) => {
-        if (e.target.checked) {
-          if (!combineQueue.includes(flow.id)) combineQueue.push(flow.id);
-        } else combineQueue = combineQueue.filter((id) => id !== flow.id);
-        renderFlowList();
-      });
-      row.querySelector('.flow-settings').addEventListener('click', (e) => { e.stopPropagation(); openFlowSettings(flow); });
-      row.addEventListener('contextmenu', (e) => { e.preventDefault(); openFlowMenu(e.clientX, e.clientY, flow); });
-      row.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/flow-id', flow.id));
-      row.addEventListener('dragover', (e) => e.preventDefault());
-      row.addEventListener('drop', (e) => { e.preventDefault(); moveFlowBefore(e.dataTransfer.getData('text/flow-id'), flow.id); });
-      groupList.appendChild(row);
-      }
-      heading.addEventListener('dragover', (e) => e.preventDefault());
-      heading.addEventListener('drop', (e) => { e.preventDefault(); moveFlowToGroup(e.dataTransfer.getData('text/flow-id'), group.id); });
-    }
-    const queue = $('combineQueue');
-    if (!combineQueue.length) {
-      queue.className = 'combine-queue empty';
-      queue.textContent = 'No flows checked';
-    } else {
-      queue.className = 'combine-queue';
-      queue.innerHTML = combineQueue.map((id, i) => {
-        const f = state.flows.find((x) => x.id === id);
-        return `<span class="queue-chip">${i + 1}. ${escapeHtml(f?.name || 'Missing')}</span>`;
-      }).join('');
-    }
-    $('combineCheckedBtn').disabled = combineQueue.length < 2;
+    renderFlowLibrary({ list: $('flowList'), groups: state.groups || [], flows: state.flows, selectedFlowId: state.selectedFlowId, search, escapeHtml, clickCount, totalDelay,
+      onSelect: (flow) => { hideOverlay(); state.selectedFlowId = flow.id; selectedActionId = null; scheduleSave(); renderAll(); },
+      onSettings: openFlowSettings, onMenu: openFlowMenu, onRenameGroup: renameLibraryGroup, onDeleteGroup: deleteLibraryGroup, onMoveBefore: moveFlowBefore, onMoveToGroup: moveFlowToGroup,
+      moveByKey: (flow, delta) => { const moved = moveFlowByKey(state.flows, flow.id, delta); if (moved === state.flows) return false; state.flows = moved; touchFlow(state.flows.find((candidate) => candidate.id === flow.id)); renderFlowList(); return true; },
+      announce: (flow, direction) => toast('Flow reordered', `${flow.name} moved ${direction}.`),
+    });
   }
 
   function renameLibraryGroup(id) {
@@ -218,89 +245,39 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
     if (!id || !confirm('Delete this group? Its flows will move to Ungrouped.')) return;
     state.flows.forEach((flow) => { if (flow.groupId === id) flow.groupId = null; }); state.groups = state.groups.filter((group) => group.id !== id); scheduleSave(); renderFlowList();
   }
-  function moveFlowToGroup(flowId, groupId) { const flow = state.flows.find((candidate) => candidate.id === flowId); if (!flow) return; flow.groupId = groupId || null; touchFlow(flow); renderFlowList(); }
+  function moveFlowToGroup(flowId, groupId) { if (!state.flows.some((flow) => flow.id === flowId)) return; state.flows = moveFlow(state.flows, flowId, null, groupId); touchFlow(state.flows.find((flow) => flow.id === flowId)); renderFlowList(); }
   function moveFlowBefore(flowId, targetId) {
     if (!flowId || flowId === targetId) return;
-    const from = state.flows.findIndex((flow) => flow.id === flowId); if (from < 0) return;
-    const [flow] = state.flows.splice(from, 1); const to = state.flows.findIndex((candidate) => candidate.id === targetId); if (to < 0) { state.flows.splice(from, 0, flow); return; }
-    flow.groupId = state.flows[to].groupId ?? null; state.flows.splice(to, 0, flow); scheduleSave(); renderFlowList();
+    const target = state.flows.find((flow) => flow.id === targetId); const flow = state.flows.find((candidate) => candidate.id === flowId); if (!target || !flow) return;
+    state.flows = moveFlow(state.flows, flowId, targetId, target.groupId); touchFlow(state.flows.find((candidate) => candidate.id === flowId)); renderFlowList();
   }
   function openFlowSettings(flow) {
-    const settings = flowPlayback(flow); const speed = prompt('Playback speed', settings.playbackSpeed); if (speed == null) return;
-    flow.playback = { ...settings, playbackSpeed: Math.max(.05, Number(speed) || 1) }; touchFlow(flow); if (flow.id === state.selectedFlowId) renderSettings();
+    if (!flow) return;
+    suspendEditorForModal();
+    state.selectedFlowId = flow.id;
+    scheduleSave();
+    document.querySelectorAll('[data-flow-id]').forEach((row) => row.classList.toggle('selected', row.dataset.flowId === flow.id));
+    renderSettings();
+    openDialog('flowSettingsModal', 'closeFlowSettingsBtn');
+  }
+  function closeSettingsModal() {
+    if (!$('flowSettingsModal')?.classList.contains('hidden')) closeDialog('flowSettingsModal');
   }
   function openFlowMenu(x, y, flow) {
     document.querySelector('.flow-context-menu')?.remove(); const menu = document.createElement('div'); menu.className = 'context-menu flow-context-menu'; menu.style.left = `${x}px`; menu.style.top = `${y}px`;
     menu.innerHTML = '<button data-menu="edit">Edit</button><button data-menu="duplicate">Duplicate</button><button data-menu="delete">Delete</button>'; document.body.appendChild(menu);
-    menu.onclick = (event) => { const choice = event.target.dataset.menu; if (choice === 'edit') { state.selectedFlowId = flow.id; renderAll(); } if (choice === 'duplicate') duplicateFlow(flow); if (choice === 'delete') deleteFlow(flow); menu.remove(); };
+    menu.onclick = (event) => { const choice = event.target.dataset.menu; if (choice === 'edit') openEditor(flow); if (choice === 'duplicate') duplicateFlow(flow); if (choice === 'delete') deleteFlow(flow); menu.remove(); };
     setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
   }
-  function duplicateFlow(source) { const copy = structuredClone(source); copy.id = uid(); copy.name = `${source.name} copy`; copy.actions = source.actions.map((action) => deepActionCopy(action)); copy.createdAt = nowIso(); copy.updatedAt = nowIso(); state.flows.splice(state.flows.indexOf(source) + 1, 0, copy); state.selectedFlowId = copy.id; selectedActionId = null; scheduleSave(); renderAll(); }
+  function duplicateFlow(source) { const copy = structuredClone(source); copy.id = uid(); copy.name = `${source.name} copy`; copy.actions = source.actions.map((action) => deepActionCopy(action)); copy.createdAt = nowIso(); copy.updatedAt = nowIso(); state.flows.splice(state.flows.indexOf(source) + 1, 0, copy); state.selectedFlowId = copy.id; selectedActionId = null; scheduleSave(); renderAll(); openEditor(copy); }
   function createLibraryGroup() { const name = prompt('New group name', 'New group'); if (!name?.trim()) return; state.groups.push({ id: uid(), name: name.trim() }); scheduleSave(); renderFlowList(); }
-  function openGroupModal(group) { $('groupNameInput').value = group.name || 'Group'; $('groupRepeatInput').value = Math.max(1, Number(group.repeatCount) || 1); $('groupModal').classList.remove('hidden'); $('saveGroupBtn').onclick = () => { group.name = $('groupNameInput').value.trim() || 'Group'; group.repeatCount = Math.max(1, Number($('groupRepeatInput').value) || 1); touchFlow(currentFlow()); $('groupModal').classList.add('hidden'); renderAll(); }; }
+  function openGroupModal(group) { $('groupNameInput').value = group.name || 'Group'; $('groupRepeatInput').value = Math.max(1, Number(group.repeatCount) || 1); openDialog('groupModal', 'groupNameInput'); $('saveGroupBtn').onclick = () => { group.name = $('groupNameInput').value.trim() || 'Group'; group.repeatCount = Math.max(1, Number($('groupRepeatInput').value) || 1); touchFlow(currentFlow()); closeDialog('groupModal'); renderAll(); }; }
   function deleteFlow(flow) { if (state.flows.length <= 1 || !confirm(`Delete “${flow.name}”?`)) return; state.flows = state.flows.filter((candidate) => candidate.id !== flow.id); state.selectedFlowId = state.flows[0].id; selectedActionId = null; scheduleSave(); renderAll(); }
 
-  function renderEditor() {
-    const flow = currentFlow();
-    if (!flow) return;
-    $('flowName').value = flow.name;
-    $('flowMeta').textContent = `${flow.actions.length} actions · ${clickCount(flow)} clicks · ${(totalDelay(flow)/1000).toFixed(2)}s recorded delays`;
-    const tbody = $('actionRows');
-    tbody.innerHTML = '';
-    flow.actions.forEach((a, index) => {
-      const tr = document.createElement('tr');
-      tr.dataset.actionId = a.id;
-      if (a.id === selectedActionId || selectedActionIds.has(a.id)) tr.classList.add('action-selected');
-      const pos = a.type === 'click'
-        ? `<div style="display:flex;gap:4px"><input class="compact-input coord-x" type="number" value="${Number(a.screenX)||0}" title="Screen X"><input class="compact-input coord-y" type="number" value="${Number(a.screenY)||0}" title="Screen Y"></div>${a.relativeX != null && a.relativeY != null ? `<div style="font-size:8px;color:#657086;margin-top:3px">window ${a.relativeX}, ${a.relativeY}</div>` : ''}`
-        : a.type === 'group' ? `<span class="group-summary">${(a.actions || []).length} children · repeats ${Math.max(1, Number(a.repeatCount) || 1)}</span>` : '—';
-      tr.innerHTML = `
-        <td><input type="checkbox" class="action-select" ${a.id === selectedActionId || selectedActionIds.has(a.id) ? 'checked' : ''}></td>
-        <td class="col-no">${index + 1}</td>
-        <td><span class="action-type ${a.type}">${a.type === 'click' ? '● Click' : a.type === 'group' ? '▣ Group' : '◷ Delay'}</span></td>
-        <td><input class="compact-input name-input action-name" value="${escapeHtml(a.name)}"></td>
-        <td>${pos}</td>
-        <td>${a.type === 'group' ? `<button class="group-edit">Edit group</button>` : `<div class="inline-field"><input class="compact-input action-delay" type="number" min="0" value="${Number(a.delayMs)||0}"><span>ms</span></div>`}</td>
-        <td class="target-cell" title="${escapeHtml(a.windowTitle || '')}">${a.type === 'click' ? escapeHtml(a.windowTitle || 'screen coordinates') : '—'}</td>`;
-      tr.addEventListener('click', (e) => {
-        if (['INPUT','SELECT','BUTTON'].includes(e.target.tagName)) return;
-        selectedActionId = a.id;
-        renderEditor();
-      });
-      tr.querySelector('.action-select').addEventListener('change', (e) => { if (e.target.checked) selectedActionIds.add(a.id); else selectedActionIds.delete(a.id); selectedActionId = a.id; renderEditor(); });
-      tr.querySelector('.action-name').addEventListener('change', (e) => { a.name = e.target.value.trim() || `${a.type === 'click' ? 'Click' : 'Delay'} ${index+1}`; touchFlow(flow); });
-      tr.querySelector('.action-delay')?.addEventListener('change', (e) => { a.delayMs = Math.max(0, Number(e.target.value)||0); touchFlow(flow); renderEditor(); });
-      tr.querySelector('.group-edit')?.addEventListener('click', (e) => { e.stopPropagation(); openGroupModal(a); });
-      if (a.type === 'click') {
-        tr.querySelector('.coord-x').addEventListener('change', (e) => updateClickPosition(a, Number(e.target.value)||0, a.screenY));
-        tr.querySelector('.coord-y').addEventListener('change', (e) => updateClickPosition(a, a.screenX, Number(e.target.value)||0));
-      }
-      tbody.appendChild(tr);
-    });
-    $('actionsEmpty').classList.toggle('hidden', flow.actions.length > 0);
-    const hasSelection = !!flow.actions.find((a) => a.id === selectedActionId || selectedActionIds.has(a.id));
-    $('moveUpBtn').disabled = !hasSelection;
-    $('moveDownBtn').disabled = !hasSelection;
-    $('duplicateActionBtn').disabled = !hasSelection;
-    $('deleteActionBtn').disabled = !hasSelection;
-    $('groupActionsBtn').disabled = selectedActionIds.size < 1;
-    $('ungroupActionBtn').disabled = !(flow.actions.find((a) => a.id === selectedActionId)?.type === 'group');
-    $('deleteFlowBtn').disabled = state.flows.length <= 1;
-  }
-
   function renderSettings() {
-    const s = { ...flowPlayback(currentFlow()), ...state.settings };
-    $('playbackSpeed').value = s.playbackSpeed;
-    $('repeatMode').value = s.repeatMode;
-    $('repeatValue').value = s.repeatValue;
-    $('repeatUnit').value = s.repeatUnit;
-    $('settleMs').value = s.settleMs;
-    $('holdMs').value = s.holdMs;
-    $('restoreCursor').checked = !!s.restoreCursor;
-    $('focusTarget').checked = !!s.focusTargetWindow;
-    $('untilTime').value = s.untilTime || '';
-    $('recordHotkey').value = s.recordHotkey;
-    $('playbackHotkey').value = s.playbackHotkey;
+    const s = playbackToForm(flowPlayback(currentFlow()), $);
+    $('recordHotkey').value = state.settings.recordHotkey;
+    $('playbackHotkey').value = state.settings.playbackHotkey;
     const continuous = s.repeatMode === 'continuous';
     $('repeatValueRow').classList.toggle('hidden', continuous);
     $('repeatUnitField').classList.toggle('hidden', s.repeatMode !== 'duration');
@@ -322,7 +299,7 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
       } catch (err) { console.warn(err); }
     }
     touchFlow(currentFlow());
-    renderEditor();
+    renderAll();
     if (mapVisible) showOverlay(true);
   }
 
@@ -332,9 +309,7 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
       await hideOverlay();
       await invoke('start_recording');
       recording = true;
-      $('recordBtn').classList.add('active');
-      $('recordBtn').disabled = true;
-      $('stopRecordBtn').disabled = false;
+      publishEditorSnapshot();
       setStatus('Recording clicks', 'recording');
       toast('Recording started', `Use ${state.settings.recordHotkey} to stop without returning to FlowClicker.`);
     } catch (err) { toast('Could not start recording', String(err), 'error'); }
@@ -344,9 +319,7 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
     if (!invoke) return;
     try { await invoke('stop_recording'); } catch (_) {}
     recording = false;
-    $('recordBtn').classList.remove('active');
-    $('recordBtn').disabled = false;
-    $('stopRecordBtn').disabled = true;
+    publishEditorSnapshot();
     setStatus('Ready');
     toast('Recording stopped', `${currentFlow()?.actions.length || 0} actions in the current flow.`);
   }
@@ -370,8 +343,7 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
       await hideOverlay();
       await invoke('play_flow', { actionsJson: JSON.stringify(flow.actions), optionsJson: JSON.stringify(options) });
       playing = true;
-      $('runBtn').disabled = true;
-      $('stopRunBtn').disabled = false;
+      publishEditorSnapshot();
       setStatus('Playing flow', 'playing');
     } catch (err) { toast('Playback failed', String(err), 'error'); }
   }
@@ -393,16 +365,14 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
     if (!invoke) return toast('Overlay requires the desktop build', '', 'error');
     try {
       await invoke('show_overlay', { actionsJson: JSON.stringify(flow.actions), interactive: true });
-      mapVisible = true;
-      $('showMapBtn').textContent = 'Hide click map'; $('showMapBtn').setAttribute('aria-pressed', 'true'); $('showMapBtn').classList.add('active');
+      mapVisible = true; publishEditorSnapshot();
     } catch (err) { toast('Could not show click map', String(err), 'error'); }
   }
 
   async function hideOverlay() {
     if (!invoke) return;
     try { await invoke('hide_overlay'); } catch (_) {}
-    mapVisible = false;
-    $('showMapBtn').textContent = 'Show click map'; $('showMapBtn').setAttribute('aria-pressed', 'false'); $('showMapBtn').classList.remove('active');
+    mapVisible = false; publishEditorSnapshot();
   }
 
   function openImportModal() {
@@ -411,7 +381,8 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
     if (!sources.length) return toast('No other flows yet', 'Create another flow before importing actions.', 'error');
     $('importSourceFlow').innerHTML = sources.map((f) => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
     $('importPosition').value = selectedActionId ? 'after' : 'end';
-    $('importModal').classList.remove('hidden');
+    suspendEditorForModal();
+    openDialog('importModal', 'importSourceFlow');
     renderImportActions();
   }
 
@@ -436,7 +407,7 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
   }
 
   function updateImportCount() { $('importCount').textContent = `${importSelection.size} selected`; }
-  function closeImportModal() { $('importModal').classList.add('hidden'); }
+  function closeImportModal() { closeDialog('importModal'); }
 
   function confirmImport() {
     const dest = currentFlow();
@@ -460,16 +431,36 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
   }
 
   function openCombineModal() {
-    const flows = combineQueue.map((id) => state.flows.find((f) => f.id === id)).filter(Boolean);
-    if (flows.length < 2) return;
-    $('combinedFlowName').value = `Combined — ${flows.map((f) => f.name).join(' + ')}`.slice(0, 120);
-    $('combineSummary').innerHTML = flows.map((f, i) => `<div class="combine-summary-row"><strong>${i+1}. ${escapeHtml(f.name)}</strong><span>${f.actions.length} actions</span></div>`).join('');
-    $('combineModal').classList.remove('hidden');
+    if (state.flows.length < 2) return toast('Not enough flows', 'Create another flow before combining.', 'error');
+    combineQueue = [];
+    $('combinedFlowName').value = 'Combined flow';
+    openDialog('combineModal', 'combinedFlowName');
+    renderCombineChoices();
   }
-  function closeCombineModal() { $('combineModal').classList.add('hidden'); }
+  function renderCombineChoices() {
+    const list = $('combineFlowList');
+    list.replaceChildren(...state.flows.map((flow) => {
+      const label = document.createElement('label'); label.className = 'combine-flow-choice';
+      const input = document.createElement('input'); input.type = 'checkbox'; input.dataset.flowId = String(flow.id);
+      const name = document.createElement('span'); name.textContent = flow.name;
+      const count = document.createElement('small'); count.textContent = `${flow.actions.length} actions`;
+      label.append(input, name, count); return label;
+    }));
+    $('combineFlowList').querySelectorAll('input').forEach((input) => input.addEventListener('change', (event) => {
+      const id = event.target.dataset.flowId;
+      combineQueue = event.target.checked ? [...combineQueue, id] : combineQueue.filter((value) => value !== id);
+      const flows = selectedFlows(combineQueue, state.flows);
+      $('combinedFlowName').value = selectionName(flows);
+      $('combineSummary').innerHTML = flows.map((flow, index) => `<div class="combine-summary-row"><strong>${index + 1}. ${escapeHtml(flow.name)}</strong><span>${flow.actions.length} actions</span></div>`).join('');
+      $('confirmCombineBtn').disabled = flows.length < 2;
+    }));
+    $('combineSummary').innerHTML = '';
+    $('confirmCombineBtn').disabled = true;
+  }
+  function closeCombineModal() { closeDialog('combineModal'); }
 
   function confirmCombine() {
-    const sources = combineQueue.map((id) => state.flows.find((f) => f.id === id)).filter(Boolean);
+    const sources = selectedFlows(combineQueue, state.flows);
     if (sources.length < 2) return closeCombineModal();
     const name = $('combinedFlowName').value.trim() || 'Combined flow';
     const actions = [];
@@ -486,49 +477,44 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
   }
 
   function bindUi() {
-    $('newFlowBtn').addEventListener('click', () => newFlow(`Flow ${state.flows.length + 1}`));
-    $('libraryMenuBtn').addEventListener('click', (event) => { event.stopPropagation(); $('libraryMenu').classList.toggle('hidden'); });
-    $('newGroupBtn').addEventListener('click', () => { $('libraryMenu').classList.add('hidden'); createLibraryGroup(); });
-    $('combineMenuBtn').addEventListener('click', () => { $('libraryMenu').classList.add('hidden'); openCombineModal(); });
-    $('flowsTab').addEventListener('click', () => { $('flowsTab').classList.add('active'); $('settingsTab').classList.remove('active'); document.querySelector('.settings-panel').classList.remove('settings-page'); });
-    $('settingsTab').addEventListener('click', () => { $('settingsTab').classList.add('active'); $('flowsTab').classList.remove('active'); document.querySelector('.settings-panel').classList.add('settings-page'); hideOverlay(); });
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') hideOverlay(); });
-    $('flowSettingsBtn').addEventListener('click', () => openFlowSettings(currentFlow()));
+    const closeLibraryMenu = () => { $('libraryMenu').classList.add('hidden'); $('libraryMenuBtn').setAttribute('aria-expanded', 'false'); };
+    $('newFlowBtn').addEventListener('click', () => { const flow = newFlow(`Flow ${state.flows.length + 1}`); openEditor(flow); });
+    $('libraryMenuBtn').addEventListener('click', (event) => { event.stopPropagation(); const hidden = $('libraryMenu').classList.toggle('hidden'); $('libraryMenuBtn').setAttribute('aria-expanded', String(!hidden)); });
+    $('newGroupBtn').addEventListener('click', () => { closeLibraryMenu(); createLibraryGroup(); });
+    $('combineMenuBtn').addEventListener('click', () => { closeLibraryMenu(); openCombineModal(); });
+    $('flowsTab').addEventListener('click', () => { $('flowsTab').classList.add('active'); $('settingsTab').classList.remove('active'); setView('compact'); });
+    $('settingsTab').addEventListener('click', () => { $('settingsTab').classList.add('active'); $('flowsTab').classList.remove('active'); setView('settings'); hideOverlay(); renderSettings(); });
+    $('closeSettingsBtn').addEventListener('click', () => {
+      closeSettingsModal();
+      setView('compact');
+      $('flowsTab').classList.add('active');
+      $('settingsTab').classList.remove('active');
+    });
+    $('closeFlowSettingsBtn').addEventListener('click', () => closeDialog('flowSettingsModal'));
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.library-menu-wrap')) closeLibraryMenu();
+      for (const id of ['importModal', 'combineModal', 'groupModal', 'flowSettingsModal']) if (event.target === $(id)) closeDialog(id);
+    });
+    document.addEventListener('keydown', (event) => {
+      const modal = document.querySelector('.modal-backdrop:not(.hidden) .modal');
+      if (event.key === 'Tab' && modal) {
+        const focusable = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])')];
+        if (focusable.length) {
+          const edge = event.shiftKey ? focusable[0] : focusable.at(-1);
+          if (document.activeElement === edge || !modal.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? focusable.at(-1) : focusable[0]).focus(); }
+        }
+        return;
+      }
+      if (event.key !== 'Escape') return;
+      const settingsPage = document.body.classList.contains('settings-view');
+      closeLibraryMenu(); closeSettingsModal(); hideOverlay(); closeCombineModal(); closeImportModal(); closeDialog('groupModal');
+      if (settingsPage) { setView('compact'); $('flowsTab').classList.add('active'); $('settingsTab').classList.remove('active'); }
+    });
     $('flowSearch').addEventListener('input', renderFlowList);
-    $('combineCheckedBtn').addEventListener('click', openCombineModal);
-    $('flowName').addEventListener('change', (e) => { const f=currentFlow(); if(!f)return; f.name=e.target.value.trim()||'Untitled flow'; touchFlow(f); renderFlowList(); });
-    $('deleteFlowBtn').addEventListener('click', () => {
-      const f = currentFlow(); if (!f || state.flows.length <= 1) return;
-      if (!confirm(`Delete “${f.name}”?`)) return;
-      state.flows = state.flows.filter((x) => x.id !== f.id); combineQueue = combineQueue.filter((id) => id !== f.id); state.selectedFlowId = state.flows[0].id; selectedActionId=null; scheduleSave(); renderAll();
-    });
-    $('recordBtn').addEventListener('click', startRecording); $('stopRecordBtn').addEventListener('click', stopRecording);
-    $('runBtn').addEventListener('click', runFlow); $('stopRunBtn').addEventListener('click', stopPlayback);
-    $('showMapBtn').addEventListener('click', () => mapVisible ? hideOverlay() : showOverlay(true));
-    $('groupActionsBtn').addEventListener('click', () => {
-      const f = currentFlow(); const ids = [...selectedActionIds]; const indexes = f?.actions.map((a, i) => ids.includes(a.id) ? i : -1).filter((i) => i >= 0) || [];
-      if (!f || !indexes.length || indexes.some((v, i) => i && v !== indexes[i - 1] + 1) || f.actions.slice(indexes[0], indexes.at(-1) + 1).some((a) => a.type === 'group')) return toast('Select contiguous top-level actions', 'Groups cannot be nested.', 'error');
-      const children = f.actions.splice(indexes[0], indexes.length, { id: uid(), type: 'group', name: 'Group', repeatCount: 1, actions: f.actions.slice(indexes[0], indexes[0] + indexes.length) });
-      f.actions[indexes[0]].actions = children; selectedActionId = f.actions[indexes[0]].id; selectedActionIds = new Set([selectedActionId]); touchFlow(f); renderAll();
-    });
-    $('ungroupActionBtn').addEventListener('click', () => { const f=currentFlow(); const i=f?.actions.findIndex((a)=>a.id===selectedActionId && a.type==='group') ?? -1; if(i<0)return; const [group]=f.actions.splice(i,1); f.actions.splice(i,0,...group.actions); selectedActionId=group.actions[0]?.id||null; selectedActionIds=new Set(selectedActionId?[selectedActionId]:[]); touchFlow(f); renderAll(); });
-    $('closeGroupBtn').addEventListener('click', () => $('groupModal').classList.add('hidden')); $('cancelGroupBtn').addEventListener('click', () => $('groupModal').classList.add('hidden'));
-    $('addClickBtn').addEventListener('click', () => {
-      const f=currentFlow(); if(!f)return; const ref=f.actions.find((a)=>a.id===selectedActionId && a.type==='click') || [...f.actions].reverse().find((a)=>a.type==='click');
-      const n=clickCount(f)+1; const a={id:uid(),type:'click',name:`Click ${n}`,screenX:ref?.screenX||0,screenY:ref?.screenY||0,relativeX:ref?.relativeX??null,relativeY:ref?.relativeY??null,windowTitle:ref?.windowTitle??null,delayMs:0};
-      f.actions.push(a); selectedActionId=a.id; touchFlow(f); renderEditor();
-    });
-    $('addDelayBtn').addEventListener('click', () => { const f=currentFlow(); if(!f)return; const a={id:uid(),type:'delay',name:`Delay ${f.actions.filter(x=>x.type==='delay').length+1}`,delayMs:500}; f.actions.push(a); selectedActionId=a.id; touchFlow(f); renderEditor(); });
-    $('importActionsBtn').addEventListener('click', openImportModal);
-    $('moveUpBtn').addEventListener('click', () => moveSelected(-1)); $('moveDownBtn').addEventListener('click', () => moveSelected(1));
-    $('duplicateActionBtn').addEventListener('click', () => { const f=currentFlow(); const i=f?.actions.findIndex(a=>a.id===selectedActionId)??-1; if(i<0)return; const copy=deepActionCopy(f.actions[i],i); copy.name=`${copy.name} copy`; f.actions.splice(i+1,0,copy); selectedActionId=copy.id; touchFlow(f); renderEditor(); });
-    $('deleteActionBtn').addEventListener('click', () => { const f=currentFlow(); const i=f?.actions.findIndex(a=>a.id===selectedActionId)??-1; if(i<0)return; f.actions.splice(i,1); selectedActionId=f.actions[Math.min(i,f.actions.length-1)]?.id||null; touchFlow(f); renderEditor(); });
-    $('saveNowBtn').addEventListener('click', () => saveState(true));
-
     ['playbackSpeed','repeatValue','settleMs','holdMs','untilTime'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
     ['repeatMode','repeatUnit'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
     ['restoreCursor','focusTarget'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
-    ['recordHotkey','playbackHotkey'].forEach((id) => $(id).addEventListener('change', async () => { saveSettingsFromUi(); await syncHotkeys(); }));
+    ['recordHotkey','playbackHotkey'].forEach((id) => $(id).addEventListener('change', async () => { state.settings[id] = $(id).value.trim(); scheduleSave(); await syncHotkeys(); }));
 
     $('closeImportBtn').addEventListener('click', closeImportModal); $('cancelImportBtn').addEventListener('click', closeImportModal); $('confirmImportBtn').addEventListener('click', confirmImport); $('importSourceFlow').addEventListener('change', renderImportActions);
     $('importSelectAll').addEventListener('change', (e) => { const source=state.flows.find(f=>f.id===$('importSourceFlow').value); importSelection=new Set(e.target.checked?(source?.actions||[]).map(a=>a.id):[]); renderImportActionsFromSelection(source); });
@@ -542,28 +528,27 @@ import { actionClickCount, migrateState as migratePersistedState, nextDeadline }
   }
 
   function moveSelected(delta) {
-    const f=currentFlow(); const i=f?.actions.findIndex(a=>a.id===selectedActionId)??-1; if(i<0)return; const j=i+delta; if(j<0||j>=f.actions.length)return; [f.actions[i],f.actions[j]]=[f.actions[j],f.actions[i]]; touchFlow(f); renderEditor();
+    const f=currentFlow(); const i=f?.actions.findIndex(a=>a.id===selectedActionId)??-1; if(i<0)return; const j=i+delta; if(j<0||j>=f.actions.length)return; [f.actions[i],f.actions[j]]=[f.actions[j],f.actions[i]]; touchFlow(f); publishEditorSnapshot();
   }
 
   function saveSettingsFromUi() {
     const flow = currentFlow(); if (!flow) return;
-    flow.playback = { ...flowPlayback(flow), playbackSpeed: Math.max(.05, Number($('playbackSpeed').value)||1), repeatMode: $('repeatMode').value, repeatValue: Math.max(1, Number($('repeatValue').value)||1), repeatUnit: $('repeatUnit').value, settleMs: Math.max(0, Number($('settleMs').value)||0), holdMs: Math.max(0, Number($('holdMs').value)||0), restoreCursor: $('restoreCursor').checked, focusTargetWindow: $('focusTarget').checked, untilTime: $('untilTime').value || null };
-    state.settings.recordHotkey = $('recordHotkey').value.trim();
-    state.settings.playbackHotkey = $('playbackHotkey').value.trim();
+    flow.playback = playbackFromForm($);
     touchFlow(flow); renderSettings();
   }
 
   async function bindTauriEvents() {
     if (!listen) return;
+    await listen('editor-intent', (event) => applyEditorIntent(event.payload));
     await listen('recorded-click', (event) => {
-      const flow=currentFlow(); if(!flow)return; const c=event.payload; const a={id:uid(),type:'click',name:`Click ${clickCount(flow)+1}`,screenX:c.screenX,screenY:c.screenY,relativeX:c.relativeX,relativeY:c.relativeY,windowTitle:c.windowTitle,delayMs:c.delayMs}; flow.actions.push(a); selectedActionId=a.id; touchFlow(flow); renderEditor(); renderFlowList();
+      const flow=currentFlow(); if(!flow)return; const c=event.payload; const a={id:uid(),type:'click',name:`Click ${clickCount(flow)+1}`,screenX:c.screenX,screenY:c.screenY,relativeX:c.relativeX,relativeY:c.relativeY,windowTitle:c.windowTitle,delayMs:c.delayMs}; flow.actions.push(a); selectedActionId=a.id; touchFlow(flow); renderAll();
     });
     await listen('hotkey-record', () => recording ? stopRecording() : startRecording());
     await listen('hotkey-play', () => playing ? stopPlayback() : runFlow());
     await listen('playback-state', (event) => {
-      playing = event.payload === 'playing'; $('runBtn').disabled=playing; $('stopRunBtn').disabled=!playing; setStatus(playing?'Playing flow':'Ready', playing?'playing':''); if(!playing) toast('Playback finished');
+      playing = event.payload === 'playing'; publishEditorSnapshot(); setStatus(playing?'Playing flow':'Ready', playing?'playing':''); if(!playing) toast('Playback finished');
     });
-    await listen('playback-error', (event) => { playing=false; $('runBtn').disabled=false; $('stopRunBtn').disabled=true; setStatus('Ready'); toast('Playback error', String(event.payload), 'error'); });
+    await listen('playback-error', (event) => { playing=false; publishEditorSnapshot(); setStatus('Ready'); toast('Playback error', String(event.payload), 'error'); });
     await listen('input-listener-error', (event) => toast('Global input listener failed', String(event.payload), 'error'));
     await listen('overlay-action-moved', async (event) => {
       const flow=currentFlow(); const move=event.payload; const action=findAction(flow?.actions, move.actionId); if(!action||action.type!=='click')return; await updateClickPosition(action,move.screenX,move.screenY); toast('Click point moved', `${action.name} → ${move.screenX}, ${move.screenY}`);

@@ -20,9 +20,7 @@ FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mo
 - Physical playback must stop promptly when Stop is requested.
 
 ## UI behavior
-- Left panel: every flow, search, combine checkboxes, combine order badges.
-- Center: selected flow editor and action table.
-- Right: repeat, timing, hotkey, and platform settings.
+- Keep product-facing layout and workflow decisions in `PLANS.md`.
 - Import Actions modal copies selected actions from another flow at beginning/end/after selected action.
 - Click-map overlay is an OS window, not injected into the target webpage.
 
@@ -32,17 +30,12 @@ FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mo
 
 ## Development guidance
 - Read the existing documentation and nearby implementation before editing. Keep changes minimal, architecture-aligned, and limited to the request; preserve unrelated work and dirty state.
+- Read and preserve `PLANS.md` during product-facing work and template reconciliation. Record only evidence-backed durable decisions, roadmap/status, and resume-worthy milestones; never invent or backfill speculative history. Update feature status only after implementation and verification.
 - Before user-facing changes, inspect the closest existing UI pattern and reuse its structure, styling, interactions, responsive behavior, and native accessibility semantics. Compare the rendered result when tooling permits and report when it does not.
 - For every new or materially changed feature, keep entrypoints focused on composition, move independently understandable concerns into descriptive feature-local files, run targeted validation, and obtain a `code-reviewer` structural review.
 - Use the repository's existing Cargo and platform build conventions. Run the smallest check that validates the change; documentation-only edits do not require an application build.
 - Get explicit approval before running physical playback or global input hooks because they can observe or control real OS input.
 - When `TEMPLATE_AGENTS.md` changes or `codex-kit project status` requires reconciliation, use the global `codex-kit-reconcile-agents` skill; never replace this file wholesale or run `codex-kit project sync` on the user's behalf.
 
-## Suggested next work
-1. Compile and smoke-test the Tauri app on Windows.
-2. Add multi-monitor overlay selection/virtual-desktop overlay.
-3. Improve Windows window matching using process executable + HWND metadata instead of title text only.
-4. Add macOS window-relative tracking and permission-status UX.
-5. Add drag reorder for flows and actions.
-6. Add import/export `.flowclicker.json` files.
-7. Add automated unit tests for combine/import/repeat behavior.
+## Roadmap
+See `PLANS.md` for current feature status, the active milestone, decisions, known gaps, and deferred work.

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlowClicker Editor</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="editor.css"></head>
+<body><main class="editor-window" aria-labelledby="editorHeading">
+  <header class="editor-window-head"><div><span class="eyebrow">Editor</span><input id="editorHeading" class="flow-name" value="Untitled flow" aria-label="Flow name"><div id="flowMeta" class="flow-meta"></div></div></header>
+  <div class="transport"><button id="recordBtn" class="record">● Record</button><button id="stopRecordBtn" disabled>Stop record</button><span class="transport-divider"></span><button id="runBtn" class="play">▶ Run flow</button><button id="stopRunBtn" disabled>■ Stop</button><span class="transport-divider"></span><button id="showMapBtn">Show click map</button></div>
+  <div class="editor-toolbar"><div class="toolbar-group"><button id="addClickBtn">＋ Click</button><button id="addDelayBtn">＋ Delay</button><button id="importBtn" class="accent-outline">⇣ Import actions</button></div><div class="toolbar-group"><button id="moveUpBtn">↑</button><button id="moveDownBtn">↓</button><button id="duplicateBtn">Duplicate</button><button id="deleteBtn" class="danger-ghost">Delete action</button></div></div>
+  <div class="action-table-wrap"><table class="action-table"><thead><tr><th>#</th><th>Type</th><th>Name</th><th>X</th><th>Y</th><th>Delay</th><th>Target</th></tr></thead><tbody id="actionRows"></tbody></table><div id="actionsEmpty" class="empty-state"><div class="empty-icon">＋</div><h3>No actions yet</h3><p>Record clicks, add an action manually, or import actions from another flow.</p></div></div>
+</main><script type="module" src="editor.js"></script></body></html>

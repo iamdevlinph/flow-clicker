@@ -124,6 +124,7 @@ pub fn play(
                     break
                 }
                 RepeatMode::Continuous => {}
+                RepeatMode::Cycles | RepeatMode::Clicks | RepeatMode::Duration => {}
             }
             if should_stop(&runtime, &options, started) {
                 break;
