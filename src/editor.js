@@ -28,6 +28,13 @@ function render() {
     row.querySelector('.action-delay')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'delayMs', value: event.target.value }));
     row.querySelector('.coord-x')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'screenX', value: event.target.value }));
     row.querySelector('.coord-y')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'screenY', value: event.target.value }));
+    row.querySelectorAll('.row-action').forEach((button) => button.addEventListener('click', () => {
+      const type = button.dataset.action;
+      if (type === 'move-up') send('move-action', { actionId: id, delta: -1 });
+      if (type === 'move-down') send('move-action', { actionId: id, delta: 1 });
+      if (type === 'duplicate') send('duplicate-action', { actionId: id });
+      if (type === 'delete') send('delete-action', { actionId: id });
+    }));
   });
 }
 const click = (id, type, payload) => $(id)?.addEventListener('click', () => send(type, typeof payload === 'function' ? payload() : payload));
@@ -35,4 +42,3 @@ listen?.('editor-snapshot', (event) => { snapshot = event.payload; selected = ne
 $('editorHeading').addEventListener('change', (event) => send('rename', { value: event.target.value }));
 click('recordBtn', 'record'); click('stopRecordBtn', 'stop-record'); click('runBtn', 'run'); click('stopRunBtn', 'stop'); click('showMapBtn', 'map');
 click('addClickBtn', 'add-click'); click('addDelayBtn', 'add-delay'); click('importBtn', 'import');
-click('moveUpBtn', 'move-action', () => ({ actionId: [...selected][0], delta: -1 })); click('moveDownBtn', 'move-action', () => ({ actionId: [...selected][0], delta: 1 })); click('duplicateBtn', 'duplicate-action', () => ({ actionId: [...selected][0] })); click('deleteBtn', 'delete-action', () => ({ actionId: [...selected][0] }));

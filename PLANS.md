@@ -35,8 +35,8 @@ Unless noted otherwise, these capabilities are present in code with
 - Numbered click-map overlay with draggable points.
 - Flow combining with fresh IDs, source immutability, and selection-order output.
 - Playback by repeat count, duration timer, local stop time, or continuously.
-- Per-flow playback configuration, global hotkeys, platform detection, and
-  `state.json` persistence.
+- Shared playback configuration for every flow, global hotkeys, platform
+  detection, and `state.json` persistence.
 - Windows foreground-window-relative playback.
 - macOS shared Enigo/Rdev playback and recording with screen-coordinate fallback.
 
@@ -129,3 +129,6 @@ pending.
 - Editor size is persisted as logical width/height on close and restored when
   the editor opens; position, maximized state, and continuous resize events are
   intentionally not persisted.
+- Playback settings are shared by every flow and edited from any card's gear;
+  the steps editor keeps row-local move, duplicate, and delete icon actions in
+  an Actions column.

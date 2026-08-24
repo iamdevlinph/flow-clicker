@@ -1,9 +1,6 @@
-import { normalizePlayback } from './playback-form.mjs';
+import { normalizePlayback, playbackDefaults } from './playback-form.mjs';
 
-export const playbackDefaults = Object.freeze({
-  playbackSpeed: 1, repeatMode: 'cycles', repeatValue: 1, repeatUnit: 'seconds',
-  settleMs: 12, holdMs: 30, restoreCursor: false, focusTargetWindow: true, untilTime: null,
-});
+export { playbackDefaults };
 
 export function normalizeEditorSize(size) {
   if (typeof size?.width !== 'number' || typeof size?.height !== 'number'
@@ -62,23 +59,31 @@ export function combineFlows(flows, id = () => crypto.randomUUID()) {
   return {
     id: id(), name: `Combined — ${sources.map((flow) => flow.name).join(' + ')}`,
     actions: copyActions(sources.flatMap((flow) => flow.actions ?? []), id),
-    playback: { ...playbackDefaults, ...(sources[0].playback ?? {}) }, groupId: sources[0].groupId ?? null,
+    groupId: sources[0].groupId ?? null,
   };
 }
 
 export function migrateState(input) {
   const state = structuredClone(input ?? {});
+  const sourceSettings = input?.settings ?? {};
+  const { recordHotkey: _recordHotkey, playbackHotkey: _playbackHotkey, ...v2Playback } = sourceSettings;
+  const sourceFlows = Array.isArray(input?.flows) ? input.flows : [];
+  const selectedFlow = sourceFlows.find((flow) => flow.id === input?.selectedFlowId);
+  const legacyPlayback = input?.version >= 3
+    ? sourceSettings.playback ?? selectedFlow?.playback ?? sourceFlows[0]?.playback ?? {}
+    : v2Playback;
   state.version = 3;
   state.editorSize = normalizeEditorSize(state.editorSize);
   state.groups = (Array.isArray(state.groups) ? state.groups : []).map((group) => ({ ...group, collapsed: group.collapsed === true }));
   state.settings = {
     recordHotkey: state.settings?.recordHotkey ?? 'Alt+Shift+R',
     playbackHotkey: state.settings?.playbackHotkey ?? 'Alt+Shift+P',
+    playback: normalizePlayback(legacyPlayback),
   };
-  state.flows = (Array.isArray(state.flows) ? state.flows : []).map((flow) => ({
-    ...flow, groupId: flow.groupId ?? null, actions: Array.isArray(flow.actions) ? flow.actions : [],
-    playback: normalizePlayback({ ...playbackDefaults, ...(input?.version >= 3 ? flow.playback : input?.settings ?? {}) }),
-  }));
+  state.flows = (Array.isArray(state.flows) ? state.flows : []).map((flow) => {
+    const { playback: _playback, ...rest } = flow;
+    return { ...rest, groupId: flow.groupId ?? null, actions: Array.isArray(flow.actions) ? flow.actions : [] };
+  });
   state.selectedFlowId = state.flows.some((flow) => flow.id === state.selectedFlowId) ? state.selectedFlowId : (state.flows[0]?.id ?? null);
   return state;
 }

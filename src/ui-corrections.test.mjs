@@ -30,6 +30,7 @@ test('combine card selection keeps click order and supports deselection', () => 
 test('flow cards use four columns and omit metadata', () => {
   const html = flowRowMarkup({ flow: { id: 'a', name: 'Flow', actions: [] }, escapeHtml: (value) => value, combineSelected: true });
   assert.match(html, /^<input class="flow-combine"[\s\S]*<button class="flow-play"[\s\S]*<div class="flow-main"[\s\S]*<div class="flow-row-actions"/);
+  assert.match(html, /class="flow-settings"[^>]*aria-label="Playback settings"/);
   assert.doesNotMatch(html, /flow-row-meta|actions ·|clicks ·|delays/);
 });
 
@@ -101,6 +102,17 @@ test('editor renders separate X/Y cells and keeps delay with ms', () => {
   assert.match(html, /class="icon-btn target-info"[\s\S]*title="A &lt;target&gt;"[\s\S]*aria-label="Target: A &lt;target&gt;"/);
   assert.doesNotMatch(html, />A &lt;target&gt;</);
   assert.match(html, /<td class="target-cell">—<\/td>/);
+  assert.match(html, /<td class="row-actions">[\s\S]*data-action="move-up"[\s\S]*data-action="move-down"[\s\S]*data-action="duplicate"[\s\S]*data-action="delete"/);
+  assert.match(html, /<td class="row-actions">[\s\S]*data-action="move-up"[^>]* disabled/);
+  assert.match(html, /data-action="move-down"[^>]* disabled/);
+});
+
+test('editor keeps actions in rows and constrains Name column', () => {
+  const html = readFileSync(new URL('./editor.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('./editor.css', import.meta.url), 'utf8');
+  assert.match(html, /<th>Actions<\/th>/);
+  assert.doesNotMatch(html, /id="moveUpBtn"|id="duplicateBtn"|id="deleteBtn"/);
+  assert.match(css, /nth-child\(3\)[^}]*160px/);
 });
 
 test('editor highlights only selected clicks for the click map', () => {

@@ -24,6 +24,7 @@ import { bindDurationInput } from './duration-input.mjs';
     settings: {
       recordHotkey: 'Alt+Shift+R',
       playbackHotkey: 'Alt+Shift+P',
+      playback: { ...playbackDefaults },
     },
   };
 
@@ -56,7 +57,7 @@ import { bindDurationInput } from './duration-input.mjs';
     if (copy.type === 'group') copy.actions = (copy.actions || []).map((child, i) => deepActionCopy(child, i));
     return copy;
   };
-  const flowPlayback = (flow) => normalizePlayback({ ...playbackDefaults, ...(flow?.playback || {}) });
+  const flowPlayback = () => normalizePlayback(state.settings.playback);
   const findAction = (actions, id) => {
     for (const action of actions || []) {
       if (action.id === id) return action;
@@ -67,7 +68,7 @@ import { bindDurationInput } from './duration-input.mjs';
   };
 
   function newFlow(name = 'New flow') {
-    const flow = { id: uid(), name, actions: [], playback: { ...playbackDefaults }, groupId: null, createdAt: nowIso(), updatedAt: nowIso() };
+    const flow = { id: uid(), name, actions: [], groupId: null, createdAt: nowIso(), updatedAt: nowIso() };
     state.flows.push(flow);
     state.selectedFlowId = flow.id;
     selectedActionId = null;
@@ -272,9 +273,6 @@ import { bindDurationInput } from './duration-input.mjs';
   function openFlowSettings(flow) {
     if (!flow) return;
     suspendEditorForModal();
-    state.selectedFlowId = flow.id;
-    scheduleSave();
-    document.querySelectorAll('[data-flow-id]').forEach((row) => row.classList.toggle('selected', row.dataset.flowId === flow.id));
     renderSettings();
     openDialog('flowSettingsModal', 'closeFlowSettingsBtn');
   }
@@ -287,7 +285,7 @@ import { bindDurationInput } from './duration-input.mjs';
     menu.onclick = (event) => { const choice = event.target.dataset.menu; if (choice === 'edit') openEditor(flow); if (choice === 'duplicate') duplicateFlow(flow); if (choice === 'delete') deleteFlow(flow); menu.remove(); };
     setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
   }
-  function duplicateFlow(source) { const copy = structuredClone(source); copy.id = uid(); copy.name = `${source.name} copy`; copy.actions = source.actions.map((action) => deepActionCopy(action)); copy.createdAt = nowIso(); copy.updatedAt = nowIso(); state.flows.splice(state.flows.indexOf(source) + 1, 0, copy); state.selectedFlowId = copy.id; selectedActionId = null; scheduleSave(); renderAll(); openEditor(copy); }
+  function duplicateFlow(source) { const { playback: _playback, ...copy } = structuredClone(source); copy.id = uid(); copy.name = `${source.name} copy`; copy.actions = source.actions.map((action) => deepActionCopy(action)); copy.createdAt = nowIso(); copy.updatedAt = nowIso(); state.flows.splice(state.flows.indexOf(source) + 1, 0, copy); state.selectedFlowId = copy.id; selectedActionId = null; scheduleSave(); renderAll(); openEditor(copy); }
   function createLibraryGroup() { openLibraryGroupModal(null); }
   function openLibraryGroupModal(group) {
     $('libraryGroupHeading').textContent = group ? 'Rename group' : 'New group';
@@ -331,7 +329,7 @@ import { bindDurationInput } from './duration-input.mjs';
   }
 
   function renderSettings() {
-    const s = playbackToForm(flowPlayback(currentFlow()), $);
+    const s = playbackToForm(flowPlayback(), $);
     $('recordHotkey').textContent = state.settings.recordHotkey;
     $('playbackHotkey').textContent = state.settings.playbackHotkey;
     $('repeatValueRow').classList.toggle('hidden', s.repeatMode !== 'cycles');
@@ -387,15 +385,15 @@ import { bindDurationInput } from './duration-input.mjs';
     runningFlowId = flow.id;
     renderFlowList();
     const options = {
-      speed: Number(flowPlayback(flow).playbackSpeed) || 1,
-      repeatMode: flowPlayback(flow).repeatMode,
-      repeatValue: Math.max(1, Number(flowPlayback(flow).repeatValue) || 1),
+      speed: Number(flowPlayback().playbackSpeed) || 1,
+      repeatMode: flowPlayback().repeatMode,
+      repeatValue: Math.max(1, Number(flowPlayback().repeatValue) || 1),
       repeatUnit: 'seconds',
-      settleMs: Math.max(0, Number(flowPlayback(flow).settleMs) || 0),
-      holdMs: Math.max(0, Number(flowPlayback(flow).holdMs) || 0),
-      restoreCursor: !!flowPlayback(flow).restoreCursor,
-      focusTargetWindow: !!flowPlayback(flow).focusTargetWindow,
-      untilTime: nextDeadline(flowPlayback(flow).untilTime),
+      settleMs: Math.max(0, Number(flowPlayback().settleMs) || 0),
+      holdMs: Math.max(0, Number(flowPlayback().holdMs) || 0),
+      restoreCursor: !!flowPlayback().restoreCursor,
+      focusTargetWindow: !!flowPlayback().focusTargetWindow,
+      untilTime: nextDeadline(flowPlayback().untilTime),
     };
     try {
       await hideOverlay();
@@ -510,7 +508,7 @@ import { bindDurationInput } from './duration-input.mjs';
     const name = $('combinedFlowName').value.trim() || 'Combined flow';
     const actions = [];
     sources.forEach((flow) => flow.actions.forEach((a) => actions.push(deepActionCopy(a, actions.length))));
-    const flow = { id: uid(), name, actions, playback: flowPlayback(sources[0]), groupId: sources[0].groupId ?? null, createdAt: nowIso(), updatedAt: nowIso(), combinedFrom: sources.map((f) => ({ id: f.id, name: f.name })) };
+    const flow = { id: uid(), name, actions, groupId: sources[0].groupId ?? null, createdAt: nowIso(), updatedAt: nowIso(), combinedFrom: sources.map((f) => ({ id: f.id, name: f.name })) };
     state.flows.push(flow);
     state.selectedFlowId = flow.id;
     combineQueue = [];
@@ -613,9 +611,8 @@ import { bindDurationInput } from './duration-input.mjs';
   }
 
   function saveSettingsFromUi() {
-    const flow = currentFlow(); if (!flow) return;
-    flow.playback = playbackFromForm($);
-    touchFlow(flow); renderSettings();
+    state.settings.playback = playbackFromForm($);
+    scheduleSave(); renderSettings();
   }
 
   async function bindTauriEvents() {

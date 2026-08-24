@@ -1,18 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { actionClickCount, copyAction, groupContiguous, migrateState, moveItem, nextDeadline, normalizeEditorSize, ungroupAction } from './state-model.mjs';
+import { actionClickCount, combineFlows, copyAction, groupContiguous, migrateState, moveItem, nextDeadline, normalizeEditorSize, ungroupAction } from './state-model.mjs';
 import { removeFlow, normalizeFlowSelection } from './flow-lifecycle.mjs';
 import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 
-test('migrates v2 playback to flows and retains only hotkeys globally', () => {
-  const source = { version: 2, groups: [{ id: 'legacy', name: 'Legacy' }, { id: 'closed', name: 'Closed', collapsed: true }], flows: [{ id: 'f', actions: [{ id: 'a', type: 'click' }] }], settings: { repeatMode: 'clicks', repeatValue: 4, recordHotkey: 'R' } };
+test('migrates v2 playback to shared settings and strips flow playback', () => {
+  const source = { version: 2, groups: [{ id: 'legacy', name: 'Legacy' }, { id: 'closed', name: 'Closed', collapsed: true }], flows: [{ id: 'f', playback: { playbackSpeed: 9 }, actions: [{ id: 'a', type: 'click' }] }], settings: { repeatMode: 'clicks', repeatValue: 4, recordHotkey: 'R' } };
   const migrated = migrateState(source);
   assert.equal(migrated.version, 3);
   assert.deepEqual(migrated.groups, [{ id: 'legacy', name: 'Legacy', collapsed: false }, { id: 'closed', name: 'Closed', collapsed: true }]);
-  assert.equal(migrated.flows[0].playback.repeatMode, 'cycles');
-  assert.equal(migrated.flows[0].playback.repeatValue, 4);
-  assert.deepEqual(migrated.settings, { recordHotkey: 'R', playbackHotkey: 'Alt+Shift+P' });
+  assert.equal(migrated.settings.playback.repeatMode, 'cycles');
+  assert.equal(migrated.settings.playback.repeatValue, 4);
+  assert.equal('recordHotkey' in migrated.settings.playback, false);
+  assert.equal('playbackHotkey' in migrated.settings.playback, false);
+  assert.equal(migrated.flows[0].playback, undefined);
+  assert.deepEqual(migrated.settings, { recordHotkey: 'R', playbackHotkey: 'Alt+Shift+P', playback: migrated.settings.playback });
   assert.deepEqual(source.flows[0].actions, [{ id: 'a', type: 'click' }]);
+});
+
+test('migrates v3 shared playback with selected, first, and default precedence immutably', () => {
+  const selected = { version: 3, selectedFlowId: 'selected', settings: {}, flows: [{ id: 'first', playback: { repeatValue: 2 } }, { id: 'selected', playback: { repeatValue: 3 } }] };
+  assert.equal(migrateState(selected).settings.playback.repeatValue, 3);
+  const global = { version: 3, selectedFlowId: 'selected', settings: { playback: { repeatValue: 4 } }, flows: [{ id: 'first', playback: { repeatValue: 2 } }, { id: 'selected', playback: { repeatValue: 3 } }] };
+  assert.equal(migrateState(global).settings.playback.repeatValue, 4);
+  const source = structuredClone(global); const migrated = migrateState(source);
+  assert.deepEqual(source.flows[0].playback, { repeatValue: 2 });
+  assert.equal(migrated.flows.every((flow) => !('playback' in flow)), true);
+  assert.equal(migrateState({ version: 3, flows: [{ id: 'first', playback: { repeatValue: 5 } }], settings: {} }).settings.playback.repeatValue, 5);
+  assert.equal(migrateState({ version: 3, flows: [{ id: 'first' }], settings: {} }).settings.playback.repeatValue, 1);
+  assert.equal('playback' in combineFlows([{ name: 'A', actions: [] }, { name: 'B', actions: [] }], () => 'id'), false);
 });
 
 test('normalizes editor size without mutating persisted state', () => {
