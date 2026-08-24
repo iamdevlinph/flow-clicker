@@ -9,3 +9,7 @@ html, body { min-width: 760px; min-height: 100%; } body { overflow: hidden; }
 .editor-window { height: 100vh; display: flex; flex-direction: column; padding: 16px; background: var(--panel); }
 .editor-window-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
 .editor-window .action-table-wrap { min-height: 0; }
+.editor-window .flow-name { border: 1px solid var(--line); background: #0e131b; border-radius: 8px; padding: 5px 8px; cursor: text; box-shadow: none !important; }
+.editor-window .flow-name:hover { border-color: #3e4a60; background: #141b25; }
+.editor-window .flow-name:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(109,140,255,.1) !important; }
+.target-info { width: 24px; height: 24px; padding: 0; border-radius: 7px; font-size: 13px; color: var(--muted); }

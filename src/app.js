@@ -1,8 +1,11 @@
 import { actionClickCount, migrateState as migratePersistedState, nextDeadline } from './state-model.mjs';
-import { selectedFlows, selectionName } from './combine-selection.mjs';
+import { selectedFlows, selectionName, toggleSelection } from './combine-selection.mjs';
 import { moveFlow, moveFlowByKey } from './flow-ordering.mjs';
-import { playbackDefaults, playbackFromForm, playbackToForm } from './playback-form.mjs';
+import { normalizePlayback, playbackDefaults, playbackFromForm, playbackToForm } from './playback-form.mjs';
 import { renderFlowLibrary } from './flow-library.mjs';
+import { updateLibraryGroups } from './library-group.mjs';
+import { normalizeFlowSelection, removeFlow } from './flow-lifecycle.mjs';
+import { normalizeHotkeyEvent } from './hotkey.mjs';
 
 (() => {
   const T = window.__TAURI__ || null;
@@ -28,12 +31,16 @@ import { renderFlowLibrary } from './flow-library.mjs';
   let selectedActionIds = new Set();
   let recording = false;
   let playing = false;
+  let runningFlowId = null;
   let mapVisible = false;
   let saveTimer = null;
   let importSelection = new Set();
   const dialogFocus = new Map();
   let editorOpen = false;
   let restoreEditor = false;
+  let pendingDeleteFlow = null;
+  let deleteInProgress = false;
+  let capturingHotkey = null;
 
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const nowIso = () => new Date().toISOString();
@@ -46,7 +53,7 @@ import { renderFlowLibrary } from './flow-library.mjs';
     if (copy.type === 'group') copy.actions = (copy.actions || []).map((child, i) => deepActionCopy(child, i));
     return copy;
   };
-  const flowPlayback = (flow) => ({ ...playbackDefaults, ...(flow?.playback || {}) });
+  const flowPlayback = (flow) => normalizePlayback({ ...playbackDefaults, ...(flow?.playback || {}) });
   const findAction = (actions, id) => {
     for (const action of actions || []) {
       if (action.id === id) return action;
@@ -96,8 +103,7 @@ import { renderFlowLibrary } from './flow-library.mjs';
     } catch (err) {
       toast('Could not load saved state', String(err), 'error');
     }
-    if (!state.flows.length) newFlow('My first flow');
-    if (!state.flows.some((f) => f.id === state.selectedFlowId)) state.selectedFlowId = state.flows[0].id;
+    state = normalizeFlowSelection(state);
     setView('compact');
     renderAll();
     syncHotkeys();
@@ -211,8 +217,8 @@ import { renderFlowLibrary } from './flow-library.mjs';
     touchFlow(flow); renderAll();
   }
 
-  function openDialog(id, focusId) {
-    dialogFocus.set(id, document.activeElement);
+  function openDialog(id, focusId, origin = document.activeElement) {
+    dialogFocus.set(id, origin);
     $('appShell').inert = true;
     $(id).classList.remove('hidden');
     $(focusId)?.focus();
@@ -228,9 +234,9 @@ import { renderFlowLibrary } from './flow-library.mjs';
 
   function renderFlowList() {
     const search = $('flowSearch').value.trim().toLowerCase();
-    renderFlowLibrary({ list: $('flowList'), groups: state.groups || [], flows: state.flows, selectedFlowId: state.selectedFlowId, search, escapeHtml, clickCount, totalDelay,
+    renderFlowLibrary({ list: $('flowList'), groups: state.groups || [], flows: state.flows, selectedFlowId: state.selectedFlowId, combineQueue, runningFlowId, search, escapeHtml,
       onSelect: (flow) => { hideOverlay(); state.selectedFlowId = flow.id; selectedActionId = null; scheduleSave(); renderAll(); },
-      onSettings: openFlowSettings, onMenu: openFlowMenu, onRenameGroup: renameLibraryGroup, onDeleteGroup: deleteLibraryGroup, onMoveBefore: moveFlowBefore, onMoveToGroup: moveFlowToGroup,
+      onEdit: openEditor, onCreateFlow: () => { const flow = newFlow(`Flow ${state.flows.length + 1}`); openEditor(flow); }, onSettings: openFlowSettings, onPlay: runFlow, onToggleCombine: toggleCombineFlow, onMenu: openFlowMenu, onRenameGroup: renameLibraryGroup, onDeleteGroup: deleteLibraryGroup, onMoveBefore: moveFlowBefore, onMoveToGroup: moveFlowToGroup,
       moveByKey: (flow, delta) => { const moved = moveFlowByKey(state.flows, flow.id, delta); if (moved === state.flows) return false; state.flows = moved; touchFlow(state.flows.find((candidate) => candidate.id === flow.id)); renderFlowList(); return true; },
       announce: (flow, direction) => toast('Flow reordered', `${flow.name} moved ${direction}.`),
     });
@@ -238,8 +244,8 @@ import { renderFlowLibrary } from './flow-library.mjs';
 
   function renameLibraryGroup(id) {
     if (!id) return;
-    const group = state.groups.find((candidate) => candidate.id === id); const name = prompt('Group name', group?.name || 'Group');
-    if (group && name?.trim()) { group.name = name.trim(); scheduleSave(); renderFlowList(); }
+    const group = state.groups.find((candidate) => candidate.id === id);
+    if (group) openLibraryGroupModal(group);
   }
   function deleteLibraryGroup(id) {
     if (!id || !confirm('Delete this group? Its flows will move to Ungrouped.')) return;
@@ -270,17 +276,55 @@ import { renderFlowLibrary } from './flow-library.mjs';
     setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
   }
   function duplicateFlow(source) { const copy = structuredClone(source); copy.id = uid(); copy.name = `${source.name} copy`; copy.actions = source.actions.map((action) => deepActionCopy(action)); copy.createdAt = nowIso(); copy.updatedAt = nowIso(); state.flows.splice(state.flows.indexOf(source) + 1, 0, copy); state.selectedFlowId = copy.id; selectedActionId = null; scheduleSave(); renderAll(); openEditor(copy); }
-  function createLibraryGroup() { const name = prompt('New group name', 'New group'); if (!name?.trim()) return; state.groups.push({ id: uid(), name: name.trim() }); scheduleSave(); renderFlowList(); }
+  function createLibraryGroup() { openLibraryGroupModal(null); }
+  function openLibraryGroupModal(group) {
+    $('libraryGroupHeading').textContent = group ? 'Rename group' : 'New group';
+    $('libraryGroupNameInput').value = group?.name || '';
+    suspendEditorForModal();
+    openDialog('libraryGroupModal', 'libraryGroupNameInput');
+    $('saveLibraryGroupBtn').onclick = () => {
+      const name = $('libraryGroupNameInput').value.trim();
+      if (!name) return $('libraryGroupNameInput').focus();
+      state.groups = updateLibraryGroups(state.groups, group?.id, name, uid());
+      scheduleSave(); closeDialog('libraryGroupModal'); renderFlowList();
+    };
+  }
   function openGroupModal(group) { $('groupNameInput').value = group.name || 'Group'; $('groupRepeatInput').value = Math.max(1, Number(group.repeatCount) || 1); openDialog('groupModal', 'groupNameInput'); $('saveGroupBtn').onclick = () => { group.name = $('groupNameInput').value.trim() || 'Group'; group.repeatCount = Math.max(1, Number($('groupRepeatInput').value) || 1); touchFlow(currentFlow()); closeDialog('groupModal'); renderAll(); }; }
-  function deleteFlow(flow) { if (state.flows.length <= 1 || !confirm(`Delete “${flow.name}”?`)) return; state.flows = state.flows.filter((candidate) => candidate.id !== flow.id); state.selectedFlowId = state.flows[0].id; selectedActionId = null; scheduleSave(); renderAll(); }
+  function deleteFlow(flow) {
+    if (!flow) return;
+    pendingDeleteFlow = flow;
+    $('deleteFlowMessage').textContent = `Delete “${flow.name}”? This cannot be undone.`;
+    suspendEditorForModal();
+    const origin = document.querySelector(`[data-flow-id="${CSS.escape(flow.id)}"]`) || $('newFlowBtn');
+    openDialog('deleteFlowModal', 'cancelDeleteFlowBtn', origin);
+  }
+
+  async function confirmDeleteFlow() {
+    const flow = pendingDeleteFlow;
+    if (deleteInProgress) return;
+    if (!flow) return closeDialog('deleteFlowModal');
+    deleteInProgress = true;
+    try {
+      if (recording) await stopRecording();
+      state = removeFlow(state, flow.id);
+      combineQueue = combineQueue.filter((id) => id !== flow.id);
+      importSelection = new Set(); selectedActionId = null; selectedActionIds = new Set(); pendingDeleteFlow = null;
+      const empty = !state.flows.length;
+      if (empty) restoreEditor = false;
+      dialogFocus.set('deleteFlowModal', $('newFlowBtn'));
+      closeDialog('deleteFlowModal');
+      if (empty) { hideOverlay(); closeEditor(); }
+      scheduleSave(); renderAll();
+    } finally { deleteInProgress = false; }
+  }
 
   function renderSettings() {
     const s = playbackToForm(flowPlayback(currentFlow()), $);
-    $('recordHotkey').value = state.settings.recordHotkey;
-    $('playbackHotkey').value = state.settings.playbackHotkey;
-    const continuous = s.repeatMode === 'continuous';
-    $('repeatValueRow').classList.toggle('hidden', continuous);
-    $('repeatUnitField').classList.toggle('hidden', s.repeatMode !== 'duration');
+    $('recordHotkey').textContent = state.settings.recordHotkey;
+    $('playbackHotkey').textContent = state.settings.playbackHotkey;
+    $('repeatValueRow').classList.toggle('hidden', s.repeatMode !== 'cycles');
+    $('repeatTimerRow').classList.toggle('hidden', s.repeatMode !== 'duration');
+    $('untilTimeField').classList.toggle('hidden', s.repeatMode !== 'until');
   }
 
   function touchFlow(flow) {
@@ -316,7 +360,7 @@ import { renderFlowLibrary } from './flow-library.mjs';
   }
 
   async function stopRecording() {
-    if (!invoke) return;
+    if (!invoke) { recording = false; publishEditorSnapshot(); setStatus('Ready'); return; }
     try { await invoke('stop_recording'); } catch (_) {}
     recording = false;
     publishEditorSnapshot();
@@ -324,15 +368,17 @@ import { renderFlowLibrary } from './flow-library.mjs';
     toast('Recording stopped', `${currentFlow()?.actions.length || 0} actions in the current flow.`);
   }
 
-  async function runFlow() {
-    const flow = currentFlow();
+  async function runFlow(flow = currentFlow()) {
+    if (flow) { state.selectedFlowId = flow.id; scheduleSave(); }
     if (!flow?.actions?.length) return toast('Nothing to run', 'Add at least one click or delay action.', 'error');
     if (!invoke) return toast('Playback requires the desktop build', 'Build and run the FlowClicker desktop app to use native mouse input.', 'error');
+    runningFlowId = flow.id;
+    renderFlowList();
     const options = {
       speed: Number(flowPlayback(flow).playbackSpeed) || 1,
       repeatMode: flowPlayback(flow).repeatMode,
       repeatValue: Math.max(1, Number(flowPlayback(flow).repeatValue) || 1),
-      repeatUnit: flowPlayback(flow).repeatUnit,
+      repeatUnit: 'seconds',
       settleMs: Math.max(0, Number(flowPlayback(flow).settleMs) || 0),
       holdMs: Math.max(0, Number(flowPlayback(flow).holdMs) || 0),
       restoreCursor: !!flowPlayback(flow).restoreCursor,
@@ -342,10 +388,8 @@ import { renderFlowLibrary } from './flow-library.mjs';
     try {
       await hideOverlay();
       await invoke('play_flow', { actionsJson: JSON.stringify(flow.actions), optionsJson: JSON.stringify(options) });
-      playing = true;
       publishEditorSnapshot();
-      setStatus('Playing flow', 'playing');
-    } catch (err) { toast('Playback failed', String(err), 'error'); }
+    } catch (err) { playing = false; runningFlowId = null; renderFlowList(); toast('Playback failed', String(err), 'error'); }
   }
 
   async function stopPlayback() {
@@ -431,31 +475,20 @@ import { renderFlowLibrary } from './flow-library.mjs';
   }
 
   function openCombineModal() {
-    if (state.flows.length < 2) return toast('Not enough flows', 'Create another flow before combining.', 'error');
-    combineQueue = [];
+    if (selectedFlows(combineQueue, state.flows).length < 2) return toast('Select two flows', 'Choose at least two flow cards before combining.', 'error');
     $('combinedFlowName').value = 'Combined flow';
     openDialog('combineModal', 'combinedFlowName');
     renderCombineChoices();
   }
   function renderCombineChoices() {
-    const list = $('combineFlowList');
-    list.replaceChildren(...state.flows.map((flow) => {
-      const label = document.createElement('label'); label.className = 'combine-flow-choice';
-      const input = document.createElement('input'); input.type = 'checkbox'; input.dataset.flowId = String(flow.id);
-      const name = document.createElement('span'); name.textContent = flow.name;
-      const count = document.createElement('small'); count.textContent = `${flow.actions.length} actions`;
-      label.append(input, name, count); return label;
-    }));
-    $('combineFlowList').querySelectorAll('input').forEach((input) => input.addEventListener('change', (event) => {
-      const id = event.target.dataset.flowId;
-      combineQueue = event.target.checked ? [...combineQueue, id] : combineQueue.filter((value) => value !== id);
-      const flows = selectedFlows(combineQueue, state.flows);
-      $('combinedFlowName').value = selectionName(flows);
-      $('combineSummary').innerHTML = flows.map((flow, index) => `<div class="combine-summary-row"><strong>${index + 1}. ${escapeHtml(flow.name)}</strong><span>${flow.actions.length} actions</span></div>`).join('');
-      $('confirmCombineBtn').disabled = flows.length < 2;
-    }));
-    $('combineSummary').innerHTML = '';
-    $('confirmCombineBtn').disabled = true;
+    const flows = selectedFlows(combineQueue, state.flows);
+    $('combinedFlowName').value = selectionName(flows) || 'Combined flow';
+    $('combineSummary').innerHTML = flows.map((flow, index) => `<div class="combine-summary-row"><strong>${index + 1}. ${escapeHtml(flow.name)}</strong><span>${flow.actions.length} actions</span></div>`).join('');
+    $('confirmCombineBtn').disabled = flows.length < 2;
+  }
+  function toggleCombineFlow(flow, checked) {
+    combineQueue = toggleSelection(combineQueue, flow.id, checked);
+    renderFlowList();
   }
   function closeCombineModal() { closeDialog('combineModal'); }
 
@@ -484,16 +517,10 @@ import { renderFlowLibrary } from './flow-library.mjs';
     $('combineMenuBtn').addEventListener('click', () => { closeLibraryMenu(); openCombineModal(); });
     $('flowsTab').addEventListener('click', () => { $('flowsTab').classList.add('active'); $('settingsTab').classList.remove('active'); setView('compact'); });
     $('settingsTab').addEventListener('click', () => { $('settingsTab').classList.add('active'); $('flowsTab').classList.remove('active'); setView('settings'); hideOverlay(); renderSettings(); });
-    $('closeSettingsBtn').addEventListener('click', () => {
-      closeSettingsModal();
-      setView('compact');
-      $('flowsTab').classList.add('active');
-      $('settingsTab').classList.remove('active');
-    });
     $('closeFlowSettingsBtn').addEventListener('click', () => closeDialog('flowSettingsModal'));
     document.addEventListener('click', (event) => {
       if (!event.target.closest('.library-menu-wrap')) closeLibraryMenu();
-      for (const id of ['importModal', 'combineModal', 'groupModal', 'flowSettingsModal']) if (event.target === $(id)) closeDialog(id);
+      for (const id of ['importModal', 'combineModal', 'groupModal', 'libraryGroupModal', 'flowSettingsModal', 'deleteFlowModal']) if (event.target === $(id)) closeDialog(id);
     });
     document.addEventListener('keydown', (event) => {
       const modal = document.querySelector('.modal-backdrop:not(.hidden) .modal');
@@ -506,19 +533,60 @@ import { renderFlowLibrary } from './flow-library.mjs';
         return;
       }
       if (event.key !== 'Escape') return;
-      const settingsPage = document.body.classList.contains('settings-view');
-      closeLibraryMenu(); closeSettingsModal(); hideOverlay(); closeCombineModal(); closeImportModal(); closeDialog('groupModal');
-      if (settingsPage) { setView('compact'); $('flowsTab').classList.add('active'); $('settingsTab').classList.remove('active'); }
+      closeLibraryMenu(); closeSettingsModal(); hideOverlay(); closeCombineModal(); closeImportModal(); closeDialog('groupModal'); closeDialog('libraryGroupModal'); closeDialog('deleteFlowModal');
     });
     $('flowSearch').addEventListener('input', renderFlowList);
-    ['playbackSpeed','repeatValue','settleMs','holdMs','untilTime'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
-    ['repeatMode','repeatUnit'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
+    ['playbackSpeed','repeatValue','repeatHours','repeatMinutes','repeatSeconds','settleMs','holdMs','untilTime'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
+    $('repeatMode').addEventListener('change', () => {
+      const mode = $('repeatMode').value;
+      $('repeatValueRow').classList.toggle('hidden', mode !== 'cycles');
+      $('repeatTimerRow').classList.toggle('hidden', mode !== 'duration');
+      $('untilTimeField').classList.toggle('hidden', mode !== 'until');
+      if (mode !== 'until') saveSettingsFromUi();
+    });
     ['restoreCursor','focusTarget'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
-    ['recordHotkey','playbackHotkey'].forEach((id) => $(id).addEventListener('change', async () => { state.settings[id] = $(id).value.trim(); scheduleSave(); await syncHotkeys(); }));
+    ['recordHotkey','playbackHotkey'].forEach((id) => {
+      const button = $(id);
+      button.addEventListener('click', () => { capturingHotkey = { id, accepted: false, syncing: false, released: false }; button.classList.add('capturing'); button.textContent = 'Press a shortcut…'; button.focus(); });
+      button.addEventListener('blur', () => {
+        if (!capturingHotkey || capturingHotkey.id !== id) return;
+        if (capturingHotkey.accepted) return;
+        capturingHotkey = null; button.classList.remove('capturing'); button.textContent = state.settings[id];
+      });
+      button.addEventListener('keydown', async (event) => {
+        if (!capturingHotkey || capturingHotkey.id !== id) return;
+        event.preventDefault(); event.stopPropagation();
+        if (event.key === 'Escape') return button.blur();
+        if (capturingHotkey.accepted) return;
+        const shortcut = normalizeHotkeyEvent(event);
+        if (!shortcut) return toast('Unsupported shortcut', 'Use Ctrl, Alt, Shift, or Meta plus one letter, number, F-key, Space, or Enter.', 'error');
+        const other = id === 'recordHotkey' ? 'playbackHotkey' : 'recordHotkey';
+        if (state.settings[other] === shortcut) return toast('Shortcut already used', 'Choose a different shortcut.', 'error');
+        const capture = capturingHotkey;
+        capture.accepted = true; capture.syncing = true; state.settings[id] = shortcut; button.textContent = shortcut; scheduleSave();
+        await syncHotkeys();
+        if (capturingHotkey !== capture) return;
+        capture.syncing = false;
+        if (capture.released) { capturingHotkey = null; button.classList.remove('capturing'); }
+      });
+      button.addEventListener('keyup', (event) => {
+        if (!capturingHotkey || capturingHotkey.id !== id || !capturingHotkey.accepted) return;
+        capturingHotkey.released = true;
+        if (!capturingHotkey.syncing) { capturingHotkey = null; button.classList.remove('capturing'); }
+      });
+    });
+    document.addEventListener('keyup', () => {
+      if (!capturingHotkey?.accepted) return;
+      capturingHotkey.released = true;
+      if (!capturingHotkey.syncing) { document.getElementById(capturingHotkey.id)?.classList.remove('capturing'); capturingHotkey = null; }
+    });
+    $('cancelDeleteFlowBtn').addEventListener('click', () => { pendingDeleteFlow = null; closeDialog('deleteFlowModal'); });
+    $('confirmDeleteFlowBtn').addEventListener('click', confirmDeleteFlow);
 
     $('closeImportBtn').addEventListener('click', closeImportModal); $('cancelImportBtn').addEventListener('click', closeImportModal); $('confirmImportBtn').addEventListener('click', confirmImport); $('importSourceFlow').addEventListener('change', renderImportActions);
     $('importSelectAll').addEventListener('change', (e) => { const source=state.flows.find(f=>f.id===$('importSourceFlow').value); importSelection=new Set(e.target.checked?(source?.actions||[]).map(a=>a.id):[]); renderImportActionsFromSelection(source); });
     $('closeCombineBtn').addEventListener('click', closeCombineModal); $('cancelCombineBtn').addEventListener('click', closeCombineModal); $('confirmCombineBtn').addEventListener('click', confirmCombine);
+    $('closeLibraryGroupBtn').addEventListener('click', () => closeDialog('libraryGroupModal')); $('cancelLibraryGroupBtn').addEventListener('click', () => closeDialog('libraryGroupModal'));
   }
 
   function renderImportActionsFromSelection(source) {
@@ -543,12 +611,13 @@ import { renderFlowLibrary } from './flow-library.mjs';
     await listen('recorded-click', (event) => {
       const flow=currentFlow(); if(!flow)return; const c=event.payload; const a={id:uid(),type:'click',name:`Click ${clickCount(flow)+1}`,screenX:c.screenX,screenY:c.screenY,relativeX:c.relativeX,relativeY:c.relativeY,windowTitle:c.windowTitle,delayMs:c.delayMs}; flow.actions.push(a); selectedActionId=a.id; touchFlow(flow); renderAll();
     });
-    await listen('hotkey-record', () => recording ? stopRecording() : startRecording());
-    await listen('hotkey-play', () => playing ? stopPlayback() : runFlow());
+    await listen('hotkey-record', () => { if (!capturingHotkey) return recording ? stopRecording() : startRecording(); });
+    await listen('hotkey-play', () => { if (!capturingHotkey) return playing ? stopPlayback() : runFlow(); });
     await listen('playback-state', (event) => {
-      playing = event.payload === 'playing'; publishEditorSnapshot(); setStatus(playing?'Playing flow':'Ready', playing?'playing':''); if(!playing) toast('Playback finished');
+      playing = event.payload === 'playing'; if (!playing) runningFlowId = null; else if (!runningFlowId) runningFlowId = state.selectedFlowId;
+      publishEditorSnapshot(); renderFlowList(); setStatus(playing?'Playing flow':'Ready', playing?'playing':''); if(!playing) toast('Playback finished');
     });
-    await listen('playback-error', (event) => { playing=false; publishEditorSnapshot(); setStatus('Ready'); toast('Playback error', String(event.payload), 'error'); });
+    await listen('playback-error', (event) => { playing=false; runningFlowId = null; publishEditorSnapshot(); renderFlowList(); setStatus('Ready'); toast('Playback error', String(event.payload), 'error'); });
     await listen('input-listener-error', (event) => toast('Global input listener failed', String(event.payload), 'error'));
     await listen('overlay-action-moved', async (event) => {
       const flow=currentFlow(); const move=event.payload; const action=findAction(flow?.actions, move.actionId); if(!action||action.type!=='click')return; await updateClickPosition(action,move.screenX,move.screenY); toast('Click point moved', `${action.name} → ${move.screenX}, ${move.screenY}`);

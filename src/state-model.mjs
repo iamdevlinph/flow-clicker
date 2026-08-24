@@ -1,3 +1,5 @@
+import { normalizePlayback } from './playback-form.mjs';
+
 export const playbackDefaults = Object.freeze({
   playbackSpeed: 1, repeatMode: 'cycles', repeatValue: 1, repeatUnit: 'seconds',
   settleMs: 12, holdMs: 30, restoreCursor: false, focusTargetWindow: true, untilTime: null,
@@ -67,8 +69,9 @@ export function migrateState(input) {
   };
   state.flows = (Array.isArray(state.flows) ? state.flows : []).map((flow) => ({
     ...flow, groupId: flow.groupId ?? null, actions: Array.isArray(flow.actions) ? flow.actions : [],
-    playback: { ...playbackDefaults, ...(input?.version >= 3 ? flow.playback : input?.settings ?? {}) },
+    playback: normalizePlayback({ ...playbackDefaults, ...(input?.version >= 3 ? flow.playback : input?.settings ?? {}) }),
   }));
+  state.selectedFlowId = state.flows.some((flow) => flow.id === state.selectedFlowId) ? state.selectedFlowId : (state.flows[0]?.id ?? null);
   return state;
 }
 

@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { actionClickCount, copyAction, groupContiguous, migrateState, moveItem, nextDeadline, ungroupAction } from './state-model.mjs';
+import { removeFlow, normalizeFlowSelection } from './flow-lifecycle.mjs';
+import { normalizeHotkeyEvent } from './hotkey.mjs';
 
 test('migrates v2 playback to flows and retains only hotkeys globally', () => {
   const source = { version: 2, flows: [{ id: 'f', actions: [{ id: 'a', type: 'click' }] }], settings: { repeatMode: 'clicks', repeatValue: 4, recordHotkey: 'R' } };
   const migrated = migrateState(source);
   assert.equal(migrated.version, 3);
-  assert.equal(migrated.flows[0].playback.repeatMode, 'clicks');
+  assert.equal(migrated.flows[0].playback.repeatMode, 'cycles');
+  assert.equal(migrated.flows[0].playback.repeatValue, 4);
   assert.deepEqual(migrated.settings, { recordHotkey: 'R', playbackHotkey: 'Alt+Shift+P' });
   assert.deepEqual(source.flows[0].actions, [{ id: 'a', type: 'click' }]);
 });
@@ -35,4 +38,22 @@ test('moves manually and rolls past local times to tomorrow', () => {
   const now = new Date('2026-08-24T20:00:00');
   assert.equal(new Date(nextDeadline('19:00', now)).getDate(), 25);
   assert.equal(nextDeadline('25:00', now), null);
+});
+
+test('normalizes empty flow selection and deletion lifecycle', () => {
+  const empty = normalizeFlowSelection({ flows: [], selectedFlowId: 'missing' });
+  assert.equal(empty.selectedFlowId, null);
+  const state = { flows: [{ id: 'a' }, { id: 'b' }], selectedFlowId: 'b' };
+  assert.equal(removeFlow(state, 'a').selectedFlowId, 'b');
+  assert.equal(removeFlow(state, 'b').selectedFlowId, 'a');
+  assert.equal(removeFlow({ ...state, selectedFlowId: 'a' }, 'a').selectedFlowId, 'b');
+  assert.equal(removeFlow({ flows: [{ id: 'a' }], selectedFlowId: 'a' }, 'a').selectedFlowId, null);
+});
+
+test('accepts canonical hotkeys and rejects unsupported keys', () => {
+  const event = { ctrlKey: true, altKey: false, shiftKey: true, metaKey: false, key: 'r' };
+  assert.equal(normalizeHotkeyEvent(event), 'Ctrl+Shift+R');
+  assert.equal(normalizeHotkeyEvent({ ...event, key: 'F12' }), 'Ctrl+Shift+F12');
+  assert.equal(normalizeHotkeyEvent({ ...event, key: 'ArrowUp' }), null);
+  assert.equal(normalizeHotkeyEvent({ ...event, ctrlKey: false, shiftKey: false }), null);
 });

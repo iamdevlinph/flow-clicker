@@ -34,8 +34,7 @@ Unless noted otherwise, these capabilities are present in code with
 - Click-only recording; action editing and grouping; imports; and group repeats.
 - Numbered click-map overlay with draggable points.
 - Flow combining with fresh IDs, source immutability, and selection-order output.
-- Playback by cycle count, total click count, duration, continuously, or until a
-  configured stop time.
+- Playback by repeat count, duration timer, local stop time, or continuously.
 - Per-flow playback configuration, global hotkeys, platform detection, and
   `state.json` persistence.
 - Windows foreground-window-relative playback.
@@ -61,6 +60,20 @@ ordering, combine-selection order, playback-form mapping, and editor table
 rendering. JavaScript syntax and whitespace checks also pass. Rendered desktop
 verification remains pending, and the Rust check is blocked on unavailable
 system GTK/pkg-config libraries in the current environment.
+
+Follow-up evidence (2026-08-24): the compact library follow-up is implemented;
+focused Node coverage, frontend syntax checks, and whitespace checks pass. The
+library now uses card-only combine selection, four-column cards, unlabeled
+ungrouped flows, row/header drag cues, and shared focus-managed group naming.
+Combine ordering and pure group cancellation/save transformations are also
+covered by the focused Node checks; code inspection confirms group saves use
+the existing autosave path without touching flows. Rendered desktop verification
+remains pending.
+
+Lifecycle/settings evidence (2026-08-24): empty-library normalization, deletion
+selection rules, and validated hotkey capture normalization are covered by
+focused Node checks; frontend syntax and whitespace checks pass. Rendered and
+physical hotkey verification remain pending.
 
 - [ ] Make the flow library the primary application view.
 - [ ] Put Edit, Duplicate, and Delete in each card's right-click menu.

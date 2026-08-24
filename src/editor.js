@@ -17,7 +17,7 @@ function render() {
   $('recordBtn').disabled = !!snapshot.recording; $('recordBtn').classList.toggle('active', !!snapshot.recording);
   $('stopRecordBtn').disabled = !snapshot.recording; $('runBtn').disabled = !!snapshot.playing; $('stopRunBtn').disabled = !snapshot.playing;
   $('showMapBtn').textContent = snapshot.mapVisible ? 'Hide click map' : 'Show click map'; $('showMapBtn').setAttribute('aria-pressed', String(!!snapshot.mapVisible));
-  $('actionRows').innerHTML = editorRowsHtml(flow.actions);
+  $('actionRows').innerHTML = editorRowsHtml(flow.actions, snapshot.mapVisible && snapshot.selectedActionId ? [snapshot.selectedActionId] : []);
   $('actionsEmpty').classList.toggle('hidden', flow.actions.length > 0);
   $('actionRows').querySelectorAll('tr').forEach((row) => {
     const id = row.dataset.id;

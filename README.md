@@ -1,4 +1,4 @@
-# FlowClicker Tauri v2.0.0
+# FlowClicker Tauri v1.0.0
 
 FlowClicker has been redesigned as a cross-platform Tauri desktop app that records click-only flows and replays them using the **physical OS mouse**. Browser background-tab clicking is intentionally out of scope for this version.
 
@@ -25,7 +25,7 @@ FlowClicker has been redesigned as a cross-platform Tauri desktop app that recor
 - Explicit delay actions.
 - Manual click/delay steps.
 - Duplicate, delete, and move actions.
-- Repeat by cycles, total clicks, duration, or continuously.
+- Repeat by count, for a duration, until a local time, or continuously.
 - Playback speed multiplier.
 - Configurable mouse settle and hold timing.
 - Configurable global record/play hotkeys.
@@ -69,7 +69,7 @@ The first Cargo build downloads the Rust crates listed in `src-tauri/Cargo.toml`
 
 ## macOS
 
-The same Tauri app and the same recorder/playback engine are intended to build on macOS. `rdev` and `enigo` both require macOS Accessibility permission for global input observation/control. The current v2.0.0 platform layer uses screen coordinates on macOS; Windows-style window-relative tracking is isolated in `src-tauri/src/platform.rs` so a Quartz/CGWindow implementation can be added without rewriting the flow engine or UI.
+The same Tauri app and the same recorder/playback engine are intended to build on macOS. `rdev` and `enigo` both require macOS Accessibility permission for global input observation/control. The current v1.0.0 platform layer uses screen coordinates on macOS; Windows-style window-relative tracking is isolated in `src-tauri/src/platform.rs` so a Quartz/CGWindow implementation can be added without rewriting the flow engine or UI.
 
 Build the raw macOS executable with:
 

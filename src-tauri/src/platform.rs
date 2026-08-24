@@ -169,7 +169,7 @@ mod imp {
 
     pub fn resolve(action: &ClickRef<'_>, _focus: bool) -> (i32, i32) {
         // Screen-coordinate playback is shared and works on macOS through Enigo.
-        // Window-relative tracking is Windows-first for v2.0.0.
+        // Window-relative tracking is Windows-first for v1.0.0.
         (action.screen_x, action.screen_y)
     }
 
