@@ -126,3 +126,6 @@ pending.
 - Flow-group collapse is persisted as `collapsed` on each schema-version-3
   group; search is a temporary visual override and does not rewrite that
   preference.
+- Editor size is persisted as logical width/height on close and restored when
+  the editor opens; position, maximized state, and continuous resize events are
+  intentionally not persisted.

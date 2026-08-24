@@ -1,4 +1,4 @@
-import { actionClickCount, migrateState as migratePersistedState, nextDeadline } from './state-model.mjs';
+import { actionClickCount, migrateState as migratePersistedState, nextDeadline, normalizeEditorSize } from './state-model.mjs';
 import { selectedFlows, selectionName, toggleSelection } from './combine-selection.mjs';
 import { moveFlow, moveFlowByKey } from './flow-ordering.mjs';
 import { normalizePlayback, playbackDefaults, playbackFromForm, playbackToForm } from './playback-form.mjs';
@@ -17,6 +17,7 @@ import { bindDurationInput } from './duration-input.mjs';
 
   const defaults = {
     version: 3,
+    editorSize: null,
     selectedFlowId: null,
     flows: [],
     groups: [],
@@ -35,6 +36,7 @@ import { bindDurationInput } from './duration-input.mjs';
   let runningFlowId = null;
   let mapVisible = false;
   let saveTimer = null;
+  let saveQueue = Promise.resolve();
   let importSelection = new Set();
   const dialogFocus = new Map();
   let editorOpen = false;
@@ -112,19 +114,22 @@ import { bindDurationInput } from './duration-input.mjs';
   }
 
   function persistedState() {
-    return { version: 3, selectedFlowId: state.selectedFlowId, flows: state.flows, groups: state.groups, settings: state.settings };
+    return { version: 3, editorSize: normalizeEditorSize(state.editorSize), selectedFlowId: state.selectedFlowId, flows: state.flows, groups: state.groups, settings: state.settings };
   }
 
-  async function saveState(showFeedback = false) {
+  function saveState(showFeedback = false) {
     clearTimeout(saveTimer);
-    try {
-      const json = JSON.stringify(persistedState(), null, 2);
-      if (invoke) await invoke('save_state', { stateJson: json });
-      else localStorage.setItem('flowclicker-mock-state', json);
-      if (showFeedback) toast('Saved', `${state.flows.length} flow${state.flows.length === 1 ? '' : 's'} saved locally.`);
-    } catch (err) {
-      toast('Save failed', String(err), 'error');
-    }
+    const json = JSON.stringify(persistedState(), null, 2);
+    saveQueue = saveQueue.then(async () => {
+      try {
+        if (invoke) await invoke('save_state', { stateJson: json });
+        else localStorage.setItem('flowclicker-mock-state', json);
+        if (showFeedback) toast('Saved', `${state.flows.length} flow${state.flows.length === 1 ? '' : 's'} saved locally.`);
+      } catch (err) {
+        toast('Save failed', String(err), 'error');
+      }
+    });
+    return saveQueue;
   }
 
   function scheduleSave() {
@@ -182,13 +187,19 @@ import { bindDurationInput } from './duration-input.mjs';
     state.selectedFlowId = flow.id;
     selectedActionId = null;
     setView('compact');
-    try { await invoke('show_editor'); editorOpen = true; } catch (err) { toast('Editor unavailable', String(err), 'error'); return; }
+    try { await invoke('show_editor', { editorSize: state.editorSize }); editorOpen = true; } catch (err) { toast('Editor unavailable', String(err), 'error'); return; }
     publishEditorSnapshot();
   }
 
-  async function closeEditor() { editorOpen = false; try { await invoke('hide_editor'); } catch (_) {} }
+  async function closeEditor() {
+    editorOpen = false;
+    try {
+      const size = await invoke('hide_editor');
+      if (size) { state.editorSize = normalizeEditorSize(size); await saveState(); }
+    } catch (_) {}
+  }
   function suspendEditorForModal() { if (!editorOpen) return; restoreEditor = true; invoke('hide_editor').catch(() => {}); }
-  async function restoreEditorAfterModal() { if (!restoreEditor) return; restoreEditor = false; try { await invoke('show_editor'); publishEditorSnapshot(); } catch (_) {} }
+  async function restoreEditorAfterModal() { if (!restoreEditor) return; restoreEditor = false; try { await invoke('show_editor', { editorSize: state.editorSize }); publishEditorSnapshot(); } catch (_) {} }
 
   function applyEditorIntent(intent = {}) {
     const flow = currentFlow();
@@ -610,6 +621,11 @@ import { bindDurationInput } from './duration-input.mjs';
   async function bindTauriEvents() {
     if (!listen) return;
     await listen('editor-intent', (event) => applyEditorIntent(event.payload));
+    await listen('editor-window-closed', async (event) => {
+      editorOpen = false;
+      const size = normalizeEditorSize(event.payload);
+      if (size) { state.editorSize = size; await saveState(); }
+    });
     await listen('recorded-click', (event) => {
       const flow=currentFlow(); if(!flow)return; const c=event.payload; const a={id:uid(),type:'click',name:`Click ${clickCount(flow)+1}`,screenX:c.screenX,screenY:c.screenY,relativeX:c.relativeX,relativeY:c.relativeY,windowTitle:c.windowTitle,delayMs:c.delayMs}; flow.actions.push(a); selectedActionId=a.id; touchFlow(flow); renderAll();
     });

@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod editor_window;
 mod input;
 mod models;
 mod platform;
@@ -180,15 +181,22 @@ fn hide_overlay(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn show_editor(app: AppHandle) -> Result<(), String> {
-    let editor = app.get_webview_window("editor").ok_or("Editor window is unavailable")?;
-    editor.show().map_err(|e| e.to_string())?;
-    editor.set_focus().map_err(|e| e.to_string())
+fn show_editor(
+    app: AppHandle,
+    editor_size: Option<editor_window::EditorSize>,
+) -> Result<(), String> {
+    let editor = app
+        .get_webview_window("editor")
+        .ok_or("Editor window is unavailable")?;
+    editor_window::show(&editor, editor_size)
 }
 
 #[tauri::command]
-fn hide_editor(app: AppHandle) -> Result<(), String> {
-    app.get_webview_window("editor").ok_or("Editor window is unavailable")?.hide().map_err(|e| e.to_string())
+fn hide_editor(app: AppHandle) -> Result<Option<editor_window::EditorSize>, String> {
+    let editor = app
+        .get_webview_window("editor")
+        .ok_or("Editor window is unavailable")?;
+    editor_window::hide(&editor)
 }
 
 #[tauri::command]
@@ -220,7 +228,17 @@ fn main() {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     if matches!(window.label(), "overlay" | "editor") {
                         api.prevent_close();
-                        let _ = window.hide();
+                        if window.label() == "editor" {
+                            if let Ok(size) = editor_window::hide(window) {
+                                let _ = window.app_handle().emit_to(
+                                    "main",
+                                    "editor-window-closed",
+                                    size,
+                                );
+                            }
+                        } else {
+                            let _ = window.hide();
+                        }
                         return;
                     }
                     api.prevent_close();

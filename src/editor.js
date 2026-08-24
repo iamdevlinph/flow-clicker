@@ -3,7 +3,6 @@ import { editorRowsHtml } from './editor-table.mjs';
 const T = window.__TAURI__ || {};
 const emit = T.event?.emit;
 const listen = T.event?.listen;
-const currentWindow = T.window?.getCurrentWindow?.();
 const $ = (id) => document.getElementById(id);
 let snapshot = null;
 let selected = new Set();
@@ -37,4 +36,3 @@ $('editorHeading').addEventListener('change', (event) => send('rename', { value:
 click('recordBtn', 'record'); click('stopRecordBtn', 'stop-record'); click('runBtn', 'run'); click('stopRunBtn', 'stop'); click('showMapBtn', 'map');
 click('addClickBtn', 'add-click'); click('addDelayBtn', 'add-delay'); click('importBtn', 'import');
 click('moveUpBtn', 'move-action', () => ({ actionId: [...selected][0], delta: -1 })); click('moveDownBtn', 'move-action', () => ({ actionId: [...selected][0], delta: 1 })); click('duplicateBtn', 'duplicate-action', () => ({ actionId: [...selected][0] })); click('deleteBtn', 'delete-action', () => ({ actionId: [...selected][0] }));
-currentWindow?.onCloseRequested?.((event) => { event.preventDefault(); send('close'); });

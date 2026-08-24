@@ -5,6 +5,13 @@ export const playbackDefaults = Object.freeze({
   settleMs: 12, holdMs: 30, restoreCursor: false, focusTargetWindow: true, untilTime: null,
 });
 
+export function normalizeEditorSize(size) {
+  if (typeof size?.width !== 'number' || typeof size?.height !== 'number'
+    || !Number.isFinite(size.width) || !Number.isFinite(size.height)
+    || size.width <= 0 || size.height <= 0) return null;
+  return { width: size.width, height: size.height };
+}
+
 export const actionClickCount = (action) => action.type === 'click' ? 1
   : action.type === 'group' ? (action.actions ?? []).reduce((n, child) => n + actionClickCount(child), 0) * Math.max(1, Number(action.repeatCount) || 1) : 0;
 
@@ -62,6 +69,7 @@ export function combineFlows(flows, id = () => crypto.randomUUID()) {
 export function migrateState(input) {
   const state = structuredClone(input ?? {});
   state.version = 3;
+  state.editorSize = normalizeEditorSize(state.editorSize);
   state.groups = (Array.isArray(state.groups) ? state.groups : []).map((group) => ({ ...group, collapsed: group.collapsed === true }));
   state.settings = {
     recordHotkey: state.settings?.recordHotkey ?? 'Alt+Shift+R',

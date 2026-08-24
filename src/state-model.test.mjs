@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { actionClickCount, copyAction, groupContiguous, migrateState, moveItem, nextDeadline, ungroupAction } from './state-model.mjs';
+import { actionClickCount, copyAction, groupContiguous, migrateState, moveItem, nextDeadline, normalizeEditorSize, ungroupAction } from './state-model.mjs';
 import { removeFlow, normalizeFlowSelection } from './flow-lifecycle.mjs';
 import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 
@@ -13,6 +13,16 @@ test('migrates v2 playback to flows and retains only hotkeys globally', () => {
   assert.equal(migrated.flows[0].playback.repeatValue, 4);
   assert.deepEqual(migrated.settings, { recordHotkey: 'R', playbackHotkey: 'Alt+Shift+P' });
   assert.deepEqual(source.flows[0].actions, [{ id: 'a', type: 'click' }]);
+});
+
+test('normalizes editor size without mutating persisted state', () => {
+  const source = { version: 3, editorSize: { width: 1200, height: 800 }, flows: [] };
+  assert.deepEqual(migrateState(source).editorSize, { width: 1200, height: 800 });
+  assert.deepEqual(source.editorSize, { width: 1200, height: 800 });
+  for (const editorSize of [undefined, null, {}, { width: '1200', height: 800 }, { width: 0, height: 800 }, { width: Infinity, height: 800 }]) {
+    assert.equal(normalizeEditorSize(editorSize), null);
+    assert.equal(migrateState({ editorSize }).editorSize, null);
+  }
 });
 
 test('copies grouped actions with fresh recursive ids', () => {
