@@ -71,13 +71,15 @@ The first Cargo build downloads the Rust crates listed in `src-tauri/Cargo.toml`
 
 The same Tauri app and the same recorder/playback engine are intended to build on macOS. `rdev` and `enigo` both require macOS Accessibility permission for global input observation/control. The current v1.0.0 platform layer uses screen coordinates on macOS; Windows-style window-relative tracking is isolated in `src-tauri/src/platform.rs` so a Quartz/CGWindow implementation can be added without rewriting the flow engine or UI.
 
-Build the raw macOS executable with:
+Build the unsigned Apple Silicon application bundle with:
 
 ```bash
 ./scripts/build-macos.sh
 ```
 
-For a normal signed/notarized `.app`, use Tauri's normal macOS bundling/signing workflow on a Mac.
+The bundle is written to `dist/FlowClicker.app`. Open it in Finder to run FlowClicker without a Terminal window. macOS may require Accessibility permission for recording, playback, and global hotkeys.
+
+Signing, notarization, and DMG packaging are not included. Use Tauri's macOS distribution workflow when preparing the app for other Macs.
 
 ## Coordinate behavior
 

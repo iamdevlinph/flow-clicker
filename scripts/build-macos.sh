@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-command -v cargo >/dev/null || { echo "Rust/Cargo is required: https://rustup.rs"; exit 1; }
+
+if ! command -v cargo >/dev/null && [[ -f "$HOME/.cargo/env" ]]; then
+  # shellcheck source=/dev/null
+  source "$HOME/.cargo/env"
+fi
+
+command -v cargo >/dev/null || { echo "Rust/Cargo is required: https://rustup.rs" >&2; exit 1; }
+command -v cargo-tauri >/dev/null || {
+  echo 'Tauri CLI 2 is required: cargo install tauri-cli --version "^2.0.0" --locked' >&2
+  exit 1
+}
+
+cargo tauri build --bundles app
 mkdir -p dist
-cargo build --release --manifest-path src-tauri/Cargo.toml
-cp src-tauri/target/release/flowclicker dist/FlowClicker
-printf '\nBuilt: %s/dist/FlowClicker\n' "$PWD"
-printf 'For a signed .app bundle, install tauri-cli and run: cargo tauri build\n'
+rm -rf dist/FlowClicker.app
+rm -f dist/FlowClicker
+cp -R src-tauri/target/release/bundle/macos/FlowClicker.app dist/FlowClicker.app
+printf '\nBuilt: %s/dist/FlowClicker.app\n' "$PWD"
