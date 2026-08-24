@@ -75,6 +75,13 @@ selection rules, and validated hotkey capture normalization are covered by
 focused Node checks; frontend syntax and whitespace checks pass. Rendered and
 physical hotkey verification remain pending.
 
+Editor action-layout evidence (2026-08-24): row actions render as one compact
+four-button group, the Target and Actions columns shrink-wrap their controls,
+and the editor's native/document minimum width is 720 logical pixels. Focused
+Node coverage, frontend syntax checks, configuration parsing, and whitespace
+checks pass; rendered comparison remains pending because the current environment
+lacks the Tauri/Linux GUI dependencies.
+
 Collapsible-group evidence (2026-08-24): group collapse state is normalized
 into schema-version-3 group records, defaults new and legacy groups to
 expanded, survives rename, and toggles immutably through the existing
