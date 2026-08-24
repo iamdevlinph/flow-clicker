@@ -49,9 +49,10 @@ test('library group cancel leaves state and save leaves flow timestamps alone', 
 });
 
 test('playback form maps repeat count, timer, until, and continuous modes', () => {
-  const fields = Object.fromEntries(['playbackSpeed','repeatMode','repeatValue','repeatHours','repeatMinutes','repeatSeconds','settleMs','holdMs','untilTime','restoreCursor','focusTarget'].map((id) => [id, { value: '', checked: false }]));
+  const fields = Object.fromEntries(['playbackSpeed','repeatMode','repeatValue','repeatDuration','settleMs','holdMs','untilTime','restoreCursor','focusTarget'].map((id) => [id, { value: '', checked: false }]));
   playbackToForm({ playbackSpeed: 2, repeatMode: 'duration', repeatValue: 3, repeatUnit: 'minutes', settleMs: 4, holdMs: 5, restoreCursor: true, focusTargetWindow: false }, (id) => fields[id]);
   assert.equal(fields.repeatMode.value, 'duration');
+  assert.equal(fields.repeatDuration.value, '00:03:00');
   assert.deepEqual(playbackFromForm((id) => fields[id]), { playbackSpeed: 2, repeatMode: 'duration', repeatValue: 180, repeatUnit: 'seconds', settleMs: 4, holdMs: 5, restoreCursor: true, focusTargetWindow: false, untilTime: null });
   fields.repeatMode.value = 'cycles'; fields.repeatValue.value = '3';
   assert.equal(playbackFromForm((id) => fields[id]).repeatValue, 3);
@@ -65,6 +66,7 @@ test('timer conversion clamps invalid sub-minute values and zero duration', () =
   assert.equal(timerToSeconds(1, 75, 99), 7199);
   assert.equal(timerToSeconds(0, 0, 0), 1);
   assert.deepEqual(secondsToTimer(3661), { hours: 1, minutes: 1, seconds: 1 });
+  assert.equal(normalizePlayback({ repeatMode: 'duration', repeatValue: 999999 }).repeatValue, 359999);
   assert.equal(normalizePlayback({ repeatMode: 'clicks', repeatValue: 4 }).repeatMode, 'cycles');
   assert.equal(normalizePlayback({ repeatMode: 'clicks', repeatValue: 4 }).repeatValue, 4);
   assert.equal(normalizePlayback({ repeatMode: 'cycles', repeatValue: 4, untilTime: '09:30' }).repeatMode, 'continuous');

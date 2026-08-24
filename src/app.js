@@ -5,7 +5,8 @@ import { normalizePlayback, playbackDefaults, playbackFromForm, playbackToForm }
 import { renderFlowLibrary } from './flow-library.mjs';
 import { updateLibraryGroups } from './library-group.mjs';
 import { normalizeFlowSelection, removeFlow } from './flow-lifecycle.mjs';
-import { normalizeHotkeyEvent } from './hotkey.mjs';
+import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
+import { bindDurationInput } from './duration-input.mjs';
 
 (() => {
   const T = window.__TAURI__ || null;
@@ -536,7 +537,8 @@ import { normalizeHotkeyEvent } from './hotkey.mjs';
       closeLibraryMenu(); closeSettingsModal(); hideOverlay(); closeCombineModal(); closeImportModal(); closeDialog('groupModal'); closeDialog('libraryGroupModal'); closeDialog('deleteFlowModal');
     });
     $('flowSearch').addEventListener('input', renderFlowList);
-    ['playbackSpeed','repeatValue','repeatHours','repeatMinutes','repeatSeconds','settleMs','holdMs','untilTime'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
+    ['playbackSpeed','repeatValue','settleMs','holdMs','untilTime'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
+    bindDurationInput($('repeatDuration'), saveSettingsFromUi);
     $('repeatMode').addEventListener('change', () => {
       const mode = $('repeatMode').value;
       $('repeatValueRow').classList.toggle('hidden', mode !== 'cycles');
@@ -559,9 +561,9 @@ import { normalizeHotkeyEvent } from './hotkey.mjs';
         if (event.key === 'Escape') return button.blur();
         if (capturingHotkey.accepted) return;
         const shortcut = normalizeHotkeyEvent(event);
-        if (!shortcut) return toast('Unsupported shortcut', 'Use Ctrl, Alt, Shift, or Meta plus one letter, number, F-key, Space, or Enter.', 'error');
+        if (!shortcut) return toast('Unsupported shortcut', 'Use F1–F12 alone, or Ctrl, Alt, Shift, or Meta plus a letter, number, F-key, Space, or Enter.', 'error');
         const other = id === 'recordHotkey' ? 'playbackHotkey' : 'recordHotkey';
-        if (state.settings[other] === shortcut) return toast('Shortcut already used', 'Choose a different shortcut.', 'error');
+        if (state.settings[other] === shortcut || hotkeysOverlap(state.settings[other], shortcut)) return toast('Shortcut already used', 'Choose a shortcut that does not overlap the other toggle.', 'error');
         const capture = capturingHotkey;
         capture.accepted = true; capture.syncing = true; state.settings[id] = shortcut; button.textContent = shortcut; scheduleSave();
         await syncHotkeys();

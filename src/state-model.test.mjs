@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { actionClickCount, copyAction, groupContiguous, migrateState, moveItem, nextDeadline, ungroupAction } from './state-model.mjs';
 import { removeFlow, normalizeFlowSelection } from './flow-lifecycle.mjs';
-import { normalizeHotkeyEvent } from './hotkey.mjs';
+import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 
 test('migrates v2 playback to flows and retains only hotkeys globally', () => {
   const source = { version: 2, flows: [{ id: 'f', actions: [{ id: 'a', type: 'click' }] }], settings: { repeatMode: 'clicks', repeatValue: 4, recordHotkey: 'R' } };
@@ -54,6 +54,12 @@ test('accepts canonical hotkeys and rejects unsupported keys', () => {
   const event = { ctrlKey: true, altKey: false, shiftKey: true, metaKey: false, key: 'r' };
   assert.equal(normalizeHotkeyEvent(event), 'Ctrl+Shift+R');
   assert.equal(normalizeHotkeyEvent({ ...event, key: 'F12' }), 'Ctrl+Shift+F12');
+  assert.equal(normalizeHotkeyEvent({ ...event, ctrlKey: false, shiftKey: false, key: 'F1' }), 'F1');
+  assert.equal(normalizeHotkeyEvent({ ...event, ctrlKey: false, shiftKey: false, key: 'F8' }), 'F8');
+  assert.equal(normalizeHotkeyEvent({ ...event, ctrlKey: false, shiftKey: false, key: 'F12' }), 'F12');
   assert.equal(normalizeHotkeyEvent({ ...event, key: 'ArrowUp' }), null);
   assert.equal(normalizeHotkeyEvent({ ...event, ctrlKey: false, shiftKey: false }), null);
+  assert.equal(hotkeysOverlap('F8', 'Ctrl+F8'), true);
+  assert.equal(hotkeysOverlap('F8', 'Ctrl+F9'), false);
+  assert.equal(hotkeysOverlap('Ctrl+F8', 'Alt+F8'), false);
 });
