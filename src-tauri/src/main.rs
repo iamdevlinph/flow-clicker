@@ -186,7 +186,7 @@ fn show_editor(
     editor_size: Option<editor_window::EditorSize>,
 ) -> Result<(), String> {
     let editor = app
-        .get_webview_window("editor")
+        .get_window("editor")
         .ok_or("Editor window is unavailable")?;
     editor_window::show(&editor, editor_size)
 }
@@ -194,7 +194,7 @@ fn show_editor(
 #[tauri::command]
 fn hide_editor(app: AppHandle) -> Result<Option<editor_window::EditorSize>, String> {
     let editor = app
-        .get_webview_window("editor")
+        .get_window("editor")
         .ok_or("Editor window is unavailable")?;
     editor_window::hide(&editor)
 }

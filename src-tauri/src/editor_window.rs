@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::{LogicalSize, Size, WebviewWindow};
+use tauri::{LogicalSize, Size, Window};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -23,7 +23,7 @@ fn logical_size(physical: (u32, u32), scale_factor: f64) -> Option<EditorSize> {
     valid_size(size).then_some(size)
 }
 
-pub fn show(window: &WebviewWindow, saved_size: Option<EditorSize>) -> Result<(), String> {
+pub fn show(window: &Window, saved_size: Option<EditorSize>) -> Result<(), String> {
     if let Some(size) = saved_size.filter(|size| valid_size(*size)) {
         let _ = window.set_size(Size::Logical(LogicalSize::new(size.width, size.height)));
     }
@@ -31,7 +31,7 @@ pub fn show(window: &WebviewWindow, saved_size: Option<EditorSize>) -> Result<()
     window.set_focus().map_err(|error| error.to_string())
 }
 
-pub fn hide(window: &WebviewWindow) -> Result<Option<EditorSize>, String> {
+pub fn hide(window: &Window) -> Result<Option<EditorSize>, String> {
     let size = if window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false)
     {
         None
