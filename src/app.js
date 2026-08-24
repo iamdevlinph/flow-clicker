@@ -3,7 +3,7 @@ import { selectedFlows, selectionName, toggleSelection } from './combine-selecti
 import { moveFlow, moveFlowByKey } from './flow-ordering.mjs';
 import { normalizePlayback, playbackDefaults, playbackFromForm, playbackToForm } from './playback-form.mjs';
 import { renderFlowLibrary } from './flow-library.mjs';
-import { updateLibraryGroups } from './library-group.mjs';
+import { toggleLibraryGroup, updateLibraryGroups } from './library-group.mjs';
 import { normalizeFlowSelection, removeFlow } from './flow-lifecycle.mjs';
 import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 import { bindDurationInput } from './duration-input.mjs';
@@ -237,7 +237,7 @@ import { bindDurationInput } from './duration-input.mjs';
     const search = $('flowSearch').value.trim().toLowerCase();
     renderFlowLibrary({ list: $('flowList'), groups: state.groups || [], flows: state.flows, selectedFlowId: state.selectedFlowId, combineQueue, runningFlowId, search, escapeHtml,
       onSelect: (flow) => { hideOverlay(); state.selectedFlowId = flow.id; selectedActionId = null; scheduleSave(); renderAll(); },
-      onEdit: openEditor, onCreateFlow: () => { const flow = newFlow(`Flow ${state.flows.length + 1}`); openEditor(flow); }, onSettings: openFlowSettings, onPlay: runFlow, onToggleCombine: toggleCombineFlow, onMenu: openFlowMenu, onRenameGroup: renameLibraryGroup, onDeleteGroup: deleteLibraryGroup, onMoveBefore: moveFlowBefore, onMoveToGroup: moveFlowToGroup,
+      onEdit: openEditor, onCreateFlow: () => { const flow = newFlow(`Flow ${state.flows.length + 1}`); openEditor(flow); }, onSettings: openFlowSettings, onPlay: runFlow, onToggleCombine: toggleCombineFlow, onToggleGroup: (id) => { state.groups = toggleLibraryGroup(state.groups, id); scheduleSave(); renderFlowList(); }, onMenu: openFlowMenu, onRenameGroup: renameLibraryGroup, onDeleteGroup: deleteLibraryGroup, onMoveBefore: moveFlowBefore, onMoveToGroup: moveFlowToGroup,
       moveByKey: (flow, delta) => { const moved = moveFlowByKey(state.flows, flow.id, delta); if (moved === state.flows) return false; state.flows = moved; touchFlow(state.flows.find((candidate) => candidate.id === flow.id)); renderFlowList(); return true; },
       announce: (flow, direction) => toast('Flow reordered', `${flow.name} moved ${direction}.`),
     });

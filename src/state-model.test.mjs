@@ -5,9 +5,10 @@ import { removeFlow, normalizeFlowSelection } from './flow-lifecycle.mjs';
 import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 
 test('migrates v2 playback to flows and retains only hotkeys globally', () => {
-  const source = { version: 2, flows: [{ id: 'f', actions: [{ id: 'a', type: 'click' }] }], settings: { repeatMode: 'clicks', repeatValue: 4, recordHotkey: 'R' } };
+  const source = { version: 2, groups: [{ id: 'legacy', name: 'Legacy' }, { id: 'closed', name: 'Closed', collapsed: true }], flows: [{ id: 'f', actions: [{ id: 'a', type: 'click' }] }], settings: { repeatMode: 'clicks', repeatValue: 4, recordHotkey: 'R' } };
   const migrated = migrateState(source);
   assert.equal(migrated.version, 3);
+  assert.deepEqual(migrated.groups, [{ id: 'legacy', name: 'Legacy', collapsed: false }, { id: 'closed', name: 'Closed', collapsed: true }]);
   assert.equal(migrated.flows[0].playback.repeatMode, 'cycles');
   assert.equal(migrated.flows[0].playback.repeatValue, 4);
   assert.deepEqual(migrated.settings, { recordHotkey: 'R', playbackHotkey: 'Alt+Shift+P' });

@@ -62,7 +62,7 @@ export function combineFlows(flows, id = () => crypto.randomUUID()) {
 export function migrateState(input) {
   const state = structuredClone(input ?? {});
   state.version = 3;
-  state.groups = Array.isArray(state.groups) ? state.groups : [];
+  state.groups = (Array.isArray(state.groups) ? state.groups : []).map((group) => ({ ...group, collapsed: group.collapsed === true }));
   state.settings = {
     recordHotkey: state.settings?.recordHotkey ?? 'Alt+Shift+R',
     playbackHotkey: state.settings?.playbackHotkey ?? 'Alt+Shift+P',

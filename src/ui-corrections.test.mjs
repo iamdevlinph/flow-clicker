@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { selectedFlows, toggleSelection } from './combine-selection.mjs';
 import { editorRowsHtml } from './editor-table.mjs';
-import { flowRowMarkup } from './flow-library.mjs';
-import { updateLibraryGroups } from './library-group.mjs';
+import { flowRowMarkup, groupHeaderMarkup } from './flow-library.mjs';
+import { toggleLibraryGroup, updateLibraryGroups } from './library-group.mjs';
 import { moveFlow, moveFlowByKey } from './flow-ordering.mjs';
 import { normalizePlayback, playbackFromForm, playbackToForm, secondsToTimer, timerToSeconds } from './playback-form.mjs';
 
@@ -38,14 +39,34 @@ test('combine summary source order follows card selection order', () => {
 });
 
 test('library group cancel leaves state and save leaves flow timestamps alone', () => {
-  const groups = [{ id: 'g', name: 'Old' }];
+  const groups = [{ id: 'g', name: 'Old', collapsed: true }];
   const flows = [{ id: 'f', updatedAt: 'fixed' }];
   assert.equal(updateLibraryGroups(groups, 'g', '   ', 'new'), null);
-  assert.deepEqual(groups, [{ id: 'g', name: 'Old' }]);
+  assert.deepEqual(groups, [{ id: 'g', name: 'Old', collapsed: true }]);
   const renamed = updateLibraryGroups(groups, 'g', ' New ', 'new');
   const created = updateLibraryGroups(renamed, null, ' Extra ', 'x');
-  assert.deepEqual(created, [{ id: 'g', name: 'New' }, { id: 'x', name: 'Extra' }]);
+  assert.deepEqual(created, [{ id: 'g', name: 'New', collapsed: true }, { id: 'x', name: 'Extra', collapsed: false }]);
   assert.deepEqual(flows, [{ id: 'f', updatedAt: 'fixed' }]);
+});
+
+test('group disclosure exposes saved state and collapse toggling is immutable', () => {
+  const group = { id: 'g', name: 'Group', collapsed: true };
+  const html = groupHeaderMarkup({ group, escapeHtml: (value) => value, flowListId: 'group-flows-g' });
+  assert.match(html, /class="group-disclosure"[^>]*aria-expanded="false"[^>]*aria-controls="group-flows-g"/);
+  const searching = groupHeaderMarkup({ group, search: 'match', escapeHtml: (value) => value, flowListId: 'group-flows-g' });
+  assert.match(searching, /class="group-disclosure"[^>]*aria-expanded="true"/);
+  assert.equal(group.collapsed, true);
+  assert.match(groupHeaderMarkup({ group, escapeHtml: (value) => value, flowListId: 'group-flows-g' }), /aria-expanded="false"/);
+  const toggled = toggleLibraryGroup([group], 'g');
+  assert.equal(toggled[0].collapsed, false);
+  assert.equal(group.collapsed, true);
+});
+
+test('group action sizing does not alter flow-card settings', () => {
+  const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+  assert.match(styles, /\.group-rename, \.group-delete \{ width: 26px; height: 26px; padding: 0 !important; font-size: 15px; \}/);
+  assert.match(styles, /\.flow-settings \{ border: 0; background: transparent; padding: 2px; color: var\(--subtle\); \}/);
+  assert.doesNotMatch(styles, /\.flow-settings[^}]*width:\s*26px/);
 });
 
 test('playback form maps repeat count, timer, until, and continuous modes', () => {

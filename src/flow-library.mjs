@@ -4,10 +4,15 @@ export function flowRowMarkup({ flow, escapeHtml, selected = false, combineSelec
   return `<input class="flow-combine" type="checkbox" aria-label="Select ${escapeHtml(flow.name)} for combining"${combineSelected ? ' checked' : ''}><button class="flow-play" type="button" title="${running ? 'Playing' : 'Play flow'}" aria-label="${running ? 'Playing' : `Play ${escapeHtml(flow.name)}`}"${running || playbackBlocked ? ' disabled' : ''}>${running ? '●' : '▶'}</button><div class="flow-main"><div class="flow-row-name">${escapeHtml(flow.name)}</div></div><div class="flow-row-actions"><button class="flow-settings" title="Playback settings" aria-label="Playback settings for ${escapeHtml(flow.name)}">⚙</button></div>`;
 }
 
+export function groupHeaderMarkup({ group, escapeHtml, flowListId, search = '' }) {
+  const expanded = !group.collapsed || !!search;
+  return `<button class="group-disclosure" type="button" aria-expanded="${expanded}" aria-controls="${escapeHtml(flowListId)}"><span class="group-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span><strong>${escapeHtml(group.name)}</strong></button><span><button class="group-rename" type="button" title="Rename group" aria-label="Rename ${escapeHtml(group.name)}">✎</button><button class="group-delete" type="button" title="Delete group" aria-label="Delete ${escapeHtml(group.name)}">×</button></span>`;
+}
+
 export function renderFlowLibrary(options) {
   const {
     list, groups, flows, selectedFlowId, combineQueue = [], runningFlowId = null,
-    search, escapeHtml, moveByKey, onSelect, onSettings, onPlay, onToggleCombine,
+    search, escapeHtml, moveByKey, onSelect, onSettings, onPlay, onToggleCombine, onToggleGroup,
     onMenu, onEdit, onRenameGroup, onDeleteGroup, onMoveBefore, onMoveToGroup, onCreateFlow, announce,
   } = options;
   list.innerHTML = '';
@@ -58,8 +63,11 @@ export function renderFlowLibrary(options) {
   groups.forEach((group) => {
     const section = document.createElement('div');
     section.className = 'library-group'; section.dataset.groupId = group.id;
-    section.innerHTML = `<div class="library-group-head"><strong>${escapeHtml(group.name)}</strong><span><button class="group-rename" title="Rename group">✎</button><button class="group-delete" title="Delete group">×</button></span></div><div class="group-flow-list"></div>`;
+    const flowListId = `group-flows-${group.id}`;
+    const expanded = !group.collapsed || !!search;
+    section.innerHTML = `<div class="library-group-head">${groupHeaderMarkup({ group, escapeHtml, flowListId, search })}</div><div class="group-flow-list${expanded ? '' : ' hidden'}" id="${escapeHtml(flowListId)}"></div>`;
     const head = section.querySelector('.library-group-head');
+    head.querySelector('.group-disclosure').addEventListener('click', () => onToggleGroup(group.id));
     section.querySelector('.group-rename').addEventListener('click', () => onRenameGroup(group.id));
     section.querySelector('.group-delete').addEventListener('click', () => onDeleteGroup(group.id));
     head.addEventListener('dragover', (event) => { event.preventDefault(); event.stopPropagation(); head.classList.add('drop-target'); });

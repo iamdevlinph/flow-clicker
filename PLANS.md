@@ -75,6 +75,14 @@ selection rules, and validated hotkey capture normalization are covered by
 focused Node checks; frontend syntax and whitespace checks pass. Rendered and
 physical hotkey verification remain pending.
 
+Collapsible-group evidence (2026-08-24): group collapse state is normalized
+into schema-version-3 group records, defaults new and legacy groups to
+expanded, survives rename, and toggles immutably through the existing
+autosave path. Native disclosure markup and larger group-only action hit areas
+are covered by focused Node checks; active search visually expands collapsed
+groups without changing saved state. Rendered desktop comparison remains
+pending.
+
 - [ ] Make the flow library the primary application view.
 - [ ] Put Edit, Duplicate, and Delete in each card's right-click menu.
 - [ ] Keep card dragging as the manual flow-ordering interaction.
@@ -115,3 +123,6 @@ physical hotkey verification remain pending.
 - Settings and closed-editor states use a compact window.
 - Escape dismisses the overlay; Alt+F4 exits the application.
 - The overlay is a separate OS window in the same process.
+- Flow-group collapse is persisted as `collapsed` on each schema-version-3
+  group; search is a temporary visual override and does not rewrite that
+  preference.
