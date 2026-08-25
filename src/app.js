@@ -7,6 +7,7 @@ import { toggleLibraryGroup, updateLibraryGroups } from './library-group.mjs';
 import { normalizeFlowSelection, removeFlow } from './flow-lifecycle.mjs';
 import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 import { bindDurationInput } from './duration-input.mjs';
+import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatus, remainingSeconds } from './playback-status.mjs';
 
 (() => {
   const T = window.__TAURI__ || null;
@@ -45,6 +46,10 @@ import { bindDurationInput } from './duration-input.mjs';
   let pendingDeleteFlow = null;
   let deleteInProgress = false;
   let capturingHotkey = null;
+  let activePlayback = null;
+  let durationResume = null;
+  let statusTimer = null;
+  let stopRequested = false;
 
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const nowIso = () => new Date().toISOString();
@@ -95,6 +100,23 @@ import { bindDurationInput } from './duration-input.mjs';
     el.textContent = text;
   }
 
+  function refreshPlaybackStatus() {
+    if (!activePlayback) return;
+    const playback = activePlayback.playback;
+    setStatus(playbackStatus({ mode: playback.repeatMode, execution: activePlayback.execution, repeatValue: playback.repeatValue, remaining: remainingSeconds(activePlayback.durationSeconds, activePlayback.startedAt), untilTime: playback.untilTime }), 'playing');
+  }
+
+  function beginStatusTimer() {
+    clearInterval(statusTimer);
+    refreshPlaybackStatus();
+    statusTimer = setInterval(refreshPlaybackStatus, 1000);
+  }
+
+  function clearPlaybackStatus() {
+    clearInterval(statusTimer); statusTimer = null; activePlayback = null;
+  }
+
+  function clearDurationResume() { durationResume = null; }
   async function loadState() {
     try {
       let json = null;
@@ -382,28 +404,39 @@ import { bindDurationInput } from './duration-input.mjs';
     if (flow) { state.selectedFlowId = flow.id; scheduleSave(); }
     if (!flow?.actions?.length) return toast('Nothing to run', 'Add at least one click or delay action.', 'error');
     if (!invoke) return toast('Playback requires the desktop build', 'Build and run the FlowClicker desktop app to use native mouse input.', 'error');
+    const playback = flowPlayback();
+    if (durationResume && (durationResume.flowId !== flow.id || durationResume.duration !== playback.repeatValue || playback.repeatMode !== 'duration')) clearDurationResume();
+    const durationSeconds = durationToRun(durationResume, flow.id, playback.repeatValue, playback.repeatMode);
+    if (playback.repeatMode !== 'duration') clearDurationResume();
     runningFlowId = flow.id;
+    activePlayback = { flowId: flow.id, playback: { ...playback, repeatValue: durationSeconds }, configuredDuration: playback.repeatValue, durationSeconds, startedAt: Date.now(), execution: 1 };
+    stopRequested = false;
+    beginStatusTimer();
     renderFlowList();
     const options = {
-      speed: Number(flowPlayback().playbackSpeed) || 1,
-      repeatMode: flowPlayback().repeatMode,
-      repeatValue: Math.max(1, Number(flowPlayback().repeatValue) || 1),
+      speed: Number(playback.playbackSpeed) || 1,
+      repeatMode: playback.repeatMode,
+      repeatValue: Math.max(1, Number(durationSeconds) || 1),
       repeatUnit: 'seconds',
-      settleMs: Math.max(0, Number(flowPlayback().settleMs) || 0),
-      holdMs: Math.max(0, Number(flowPlayback().holdMs) || 0),
-      restoreCursor: !!flowPlayback().restoreCursor,
-      focusTargetWindow: !!flowPlayback().focusTargetWindow,
-      untilTime: nextDeadline(flowPlayback().untilTime),
+      settleMs: Math.max(0, Number(playback.settleMs) || 0),
+      holdMs: Math.max(0, Number(playback.holdMs) || 0),
+      restoreCursor: !!playback.restoreCursor,
+      focusTargetWindow: !!playback.focusTargetWindow,
+      untilTime: nextDeadline(playback.untilTime),
     };
     try {
       await hideOverlay();
       await invoke('play_flow', { actionsJson: JSON.stringify(flow.actions), optionsJson: JSON.stringify(options) });
       publishEditorSnapshot();
-    } catch (err) { playing = false; runningFlowId = null; renderFlowList(); setStatus('Idle'); toast('Playback failed', String(err), 'error'); }
+    } catch (err) { clearDurationResume(); clearPlaybackStatus(); playing = false; runningFlowId = null; renderFlowList(); setStatus('Idle'); toast('Playback failed', String(err), 'error'); }
   }
 
   async function stopPlayback() {
     if (!invoke) return;
+    if (activePlayback?.playback.repeatMode === 'duration') {
+      durationResume = durationRemainder(activePlayback, flowPlayback());
+      stopRequested = !!durationResume;
+    }
     await invoke('stop_playback').catch(() => {});
   }
 
@@ -611,6 +644,7 @@ import { bindDurationInput } from './duration-input.mjs';
   }
 
   function saveSettingsFromUi() {
+    clearDurationResume();
     state.settings.playback = playbackFromForm($);
     scheduleSave(); renderSettings();
   }
@@ -629,10 +663,13 @@ import { bindDurationInput } from './duration-input.mjs';
     await listen('hotkey-record', () => { if (!capturingHotkey) return recording ? stopRecording() : startRecording(); });
     await listen('hotkey-play', () => { if (!capturingHotkey) return playing ? stopPlayback() : runFlow(); });
     await listen('playback-state', (event) => {
-      playing = event.payload === 'playing'; if (!playing) runningFlowId = null; else if (!runningFlowId) runningFlowId = state.selectedFlowId;
-      publishEditorSnapshot(); renderFlowList(); setStatus(playing ? 'Playing' : 'Idle', playing ? 'playing' : ''); if(!playing) toast('Playback finished');
+      playing = event.payload === 'playing';
+      if (playing) { if (!runningFlowId) runningFlowId = state.selectedFlowId; beginStatusTimer(); }
+      else { durationResume = durationResumeAfterEnd(durationResume, stopRequested); clearPlaybackStatus(); runningFlowId = null; }
+      publishEditorSnapshot(); renderFlowList(); if (!playing) setStatus('Idle'); if(!playing) toast('Playback finished');
     });
-    await listen('playback-error', (event) => { playing=false; runningFlowId = null; publishEditorSnapshot(); renderFlowList(); setStatus('Idle'); toast('Playback error', String(event.payload), 'error'); });
+    await listen('playback-progress', (event) => { if (activePlayback && Number(event.payload?.execution) > 0) { activePlayback.execution = Number(event.payload.execution); refreshPlaybackStatus(); } });
+    await listen('playback-error', (event) => { durationResume = durationResumeAfterEnd(durationResume, stopRequested, true); clearPlaybackStatus(); stopRequested = false; playing=false; runningFlowId = null; publishEditorSnapshot(); renderFlowList(); setStatus('Idle'); toast('Playback error', String(event.payload), 'error'); });
     await listen('input-listener-error', (event) => toast('Global input listener failed', String(event.payload), 'error'));
     await listen('overlay-action-moved', async (event) => {
       const flow=currentFlow(); const move=event.payload; const action=findAction(flow?.actions, move.actionId); if(!action||action.type!=='click')return; await updateClickPosition(action,move.screenX,move.screenY); toast('Click point moved', `${action.name} → ${move.screenX}, ${move.screenY}`);

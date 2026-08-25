@@ -53,6 +53,10 @@ fn duration_limit_ms(options: &PlaybackOptions) -> u128 {
     options.repeat_value as u128 * mult
 }
 
+fn execution_number(completed: u64) -> u64 {
+    completed.saturating_add(1)
+}
+
 pub fn play(
     app: AppHandle,
     runtime: Arc<RuntimeState>,
@@ -96,6 +100,10 @@ pub fn play(
         let _ = app.emit("playback-state", "playing");
 
         'outer: loop {
+            let _ = app.emit(
+                "playback-progress",
+                serde_json::json!({"execution": execution_number(cycles), "clicks": click_count}),
+            );
             for action in &actions {
                 if should_stop(&runtime, &options, started)
                     || click_limit_reached(&options, click_count)
@@ -266,5 +274,11 @@ mod tests {
             &options(None),
             Instant::now()
         ));
+    }
+
+    #[test]
+    fn execution_starts_at_one_and_advances() {
+        assert_eq!(execution_number(0), 1);
+        assert_eq!(execution_number(2), 3);
     }
 }

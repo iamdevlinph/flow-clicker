@@ -79,8 +79,8 @@ test('runtime banner reserves space and uses accessible idle, recording, and pla
   assert.match(styles, /\.status-banner\.recording \{ background: var\(--red\); color: var\(--bg\); \}/);
   assert.match(styles, /\.status-banner\.playing \{ background: var\(--green\)/);
   assert.match(app, /setStatus\('Recording', 'recording'\)/);
-  assert.match(app, /setStatus\(playing \? 'Playing' : 'Idle', playing \? 'playing' : ''\)/);
-  assert.equal((app.match(/setStatus\('Idle'\)/g) || []).length, 5);
+  assert.match(app, /setStatus\(playbackStatus\([^;]+, 'playing'\)/);
+  assert.equal((app.match(/setStatus\('Idle'\)/g) || []).length, 6);
 });
 
 test('playback form maps repeat count, timer, until, and continuous modes', () => {

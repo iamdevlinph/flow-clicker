@@ -97,6 +97,12 @@ Node coverage, frontend syntax checks, and whitespace checks pass; rendered
 desktop comparison remains unavailable because the current environment lacks
 the Tauri/Linux GUI dependencies.
 
+Playback-banner evidence (2026-08-25): playback status now reports execution,
+repeat, duration, and local 12-hour until-time context; duration Stop retains a
+session-only whole-second remainder for the same flow and settings. Focused
+frontend checks, syntax, and whitespace validation pass; physical playback and
+rendered desktop comparison remain pending.
+
 - [ ] Make the flow library the primary application view.
 - [ ] Put Edit, Duplicate, and Delete in each card's right-click menu.
 - [ ] Keep card dragging as the manual flow-ordering interaction.

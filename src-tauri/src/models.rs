@@ -227,7 +227,7 @@ pub struct PlatformInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::FlowAction;
+    use super::{FlowAction, PlaybackOptions, RepeatMode, RepeatUnit};
 
     #[test]
     fn deserializes_frontend_flow_actions() {
