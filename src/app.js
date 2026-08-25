@@ -91,8 +91,8 @@ import { bindDurationInput } from './duration-input.mjs';
 
   function setStatus(text, kind = '') {
     const el = $('runtimeStatus');
-    el.className = `status-pill ${kind}`.trim();
-    el.querySelector('span:last-child').textContent = text;
+    el.className = `status-banner ${kind}`.trim();
+    el.textContent = text;
   }
 
   async function loadState() {
@@ -364,17 +364,17 @@ import { bindDurationInput } from './duration-input.mjs';
       await invoke('start_recording');
       recording = true;
       publishEditorSnapshot();
-      setStatus('Recording clicks', 'recording');
+      setStatus('Recording', 'recording');
       toast('Recording started', `Use ${state.settings.recordHotkey} to stop without returning to FlowClicker.`);
-    } catch (err) { toast('Could not start recording', String(err), 'error'); }
+    } catch (err) { setStatus('Idle'); toast('Could not start recording', String(err), 'error'); }
   }
 
   async function stopRecording() {
-    if (!invoke) { recording = false; publishEditorSnapshot(); setStatus('Ready'); return; }
+    if (!invoke) { recording = false; publishEditorSnapshot(); setStatus('Idle'); return; }
     try { await invoke('stop_recording'); } catch (_) {}
     recording = false;
     publishEditorSnapshot();
-    setStatus('Ready');
+    setStatus('Idle');
     toast('Recording stopped', `${currentFlow()?.actions.length || 0} actions in the current flow.`);
   }
 
@@ -399,7 +399,7 @@ import { bindDurationInput } from './duration-input.mjs';
       await hideOverlay();
       await invoke('play_flow', { actionsJson: JSON.stringify(flow.actions), optionsJson: JSON.stringify(options) });
       publishEditorSnapshot();
-    } catch (err) { playing = false; runningFlowId = null; renderFlowList(); toast('Playback failed', String(err), 'error'); }
+    } catch (err) { playing = false; runningFlowId = null; renderFlowList(); setStatus('Idle'); toast('Playback failed', String(err), 'error'); }
   }
 
   async function stopPlayback() {
@@ -630,9 +630,9 @@ import { bindDurationInput } from './duration-input.mjs';
     await listen('hotkey-play', () => { if (!capturingHotkey) return playing ? stopPlayback() : runFlow(); });
     await listen('playback-state', (event) => {
       playing = event.payload === 'playing'; if (!playing) runningFlowId = null; else if (!runningFlowId) runningFlowId = state.selectedFlowId;
-      publishEditorSnapshot(); renderFlowList(); setStatus(playing?'Playing flow':'Ready', playing?'playing':''); if(!playing) toast('Playback finished');
+      publishEditorSnapshot(); renderFlowList(); setStatus(playing ? 'Playing' : 'Idle', playing ? 'playing' : ''); if(!playing) toast('Playback finished');
     });
-    await listen('playback-error', (event) => { playing=false; runningFlowId = null; publishEditorSnapshot(); renderFlowList(); setStatus('Ready'); toast('Playback error', String(event.payload), 'error'); });
+    await listen('playback-error', (event) => { playing=false; runningFlowId = null; publishEditorSnapshot(); renderFlowList(); setStatus('Idle'); toast('Playback error', String(event.payload), 'error'); });
     await listen('input-listener-error', (event) => toast('Global input listener failed', String(event.payload), 'error'));
     await listen('overlay-action-moved', async (event) => {
       const flow=currentFlow(); const move=event.payload; const action=findAction(flow?.actions, move.actionId); if(!action||action.type!=='click')return; await updateClickPosition(action,move.screenX,move.screenY); toast('Click point moved', `${action.name} → ${move.screenX}, ${move.screenY}`);

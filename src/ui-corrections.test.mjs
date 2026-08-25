@@ -70,6 +70,19 @@ test('group action sizing does not alter flow-card settings', () => {
   assert.doesNotMatch(styles, /\.flow-settings[^}]*width:\s*26px/);
 });
 
+test('runtime banner reserves space and uses accessible idle, recording, and playing states', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  assert.match(html, /<div class="status-banner" id="runtimeStatus" role="status" aria-live="polite">Idle<\/div>\s*<header class="topbar">/);
+  assert.match(styles, /\.status-banner \{[^}]*flex: 0 0 22px[^}]*background: var\(--subtle\)/);
+  assert.match(styles, /\.status-banner\.recording \{ background: var\(--red\); color: var\(--bg\); \}/);
+  assert.match(styles, /\.status-banner\.playing \{ background: var\(--green\)/);
+  assert.match(app, /setStatus\('Recording', 'recording'\)/);
+  assert.match(app, /setStatus\(playing \? 'Playing' : 'Idle', playing \? 'playing' : ''\)/);
+  assert.equal((app.match(/setStatus\('Idle'\)/g) || []).length, 5);
+});
+
 test('playback form maps repeat count, timer, until, and continuous modes', () => {
   const fields = Object.fromEntries(['playbackSpeed','repeatMode','repeatValue','repeatDuration','settleMs','holdMs','untilTime','restoreCursor','focusTarget'].map((id) => [id, { value: '', checked: false }]));
   playbackToForm({ playbackSpeed: 2, repeatMode: 'duration', repeatValue: 3, repeatUnit: 'minutes', settleMs: 4, holdMs: 5, restoreCursor: true, focusTargetWindow: false }, (id) => fields[id]);

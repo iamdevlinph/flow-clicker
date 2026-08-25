@@ -90,6 +90,13 @@ are covered by focused Node checks; active search visually expands collapsed
 groups without changing saved state. Rendered desktop comparison remains
 pending.
 
+Runtime-status evidence (2026-08-25): the main window reserves a full-width
+status banner above the top bar. It announces Idle, Recording, and Playing
+states accessibly and uses the existing grey, red, and green tokens. Focused
+Node coverage, frontend syntax checks, and whitespace checks pass; rendered
+desktop comparison remains unavailable because the current environment lacks
+the Tauri/Linux GUI dependencies.
+
 - [ ] Make the flow library the primary application view.
 - [ ] Put Edit, Duplicate, and Delete in each card's right-click menu.
 - [ ] Keep card dragging as the manual flow-ordering interaction.
@@ -139,3 +146,6 @@ pending.
 - Playback settings are shared by every flow and edited from any card's gear;
   the steps editor keeps row-local move, duplicate, and delete icon actions in
   an Actions column.
+- The main-window runtime state is always visible in a layout-reserving banner
+  above the top bar: grey Idle, red Recording, and green Playing. The separate
+  editor window is unchanged.
