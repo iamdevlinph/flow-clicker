@@ -14,6 +14,8 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
   const invoke = T?.core?.invoke;
   const listen = T?.event?.listen;
   const emitTo = T?.event?.emitTo;
+  const getVersion = T?.app?.getVersion;
+  const getCurrentWindow = T?.window?.getCurrentWindow;
   const $ = (id) => document.getElementById(id);
 
   const defaults = {
@@ -134,6 +136,13 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
     renderAll();
     syncHotkeys();
     detectPlatform();
+  }
+
+  async function showVersion() {
+    if (!getVersion) return;
+    const version = await getVersion();
+    $('appVersion').textContent = `v${version}`;
+    await getCurrentWindow?.().setTitle(`FlowClicker v${version}`);
   }
 
   function persistedState() {
@@ -676,5 +685,5 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
     });
   }
 
-  bindUi(); bindTauriEvents(); loadState();
+  bindUi(); bindTauriEvents(); showVersion().catch(() => {}); loadState();
 })();

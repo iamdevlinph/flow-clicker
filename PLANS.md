@@ -103,6 +103,17 @@ session-only whole-second remainder for the same flow and settings. Focused
 frontend checks, syntax, and whitespace validation pass; physical playback and
 rendered desktop comparison remain pending.
 
+Version-display evidence (2026-08-25): `Cargo.toml` is the single packaged
+version source at 1.1.0. The main header and main native window title obtain
+that version at runtime; editor and overlay titles remain unchanged. The
+version-script tests, 30 frontend tests, JavaScript syntax checks, 8 Rust tests,
+`cargo check`, whitespace validation, and macOS bundle build pass. The bundle
+reports version 1.1.0 and identifier `com.flowclicker.desktop`; only the retained
+transitive `block v0.1.6` future-compatibility notice remains. Rendered comparison
+is unavailable because no browser is connected. The skill validator is blocked
+because its host Python environment lacks `yaml`; manual metadata inspection and
+the skill's behavior tests pass.
+
 - [ ] Make the flow library the primary application view.
 - [ ] Put Edit, Duplicate, and Delete in each card's right-click menu.
 - [ ] Keep card dragging as the manual flow-ordering interaction.

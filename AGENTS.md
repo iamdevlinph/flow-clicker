@@ -36,6 +36,7 @@ FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mo
 - Use the repository's existing Cargo and platform build conventions. Run the smallest check that validates the change; documentation-only edits do not require an application build.
 - Get explicit approval before running physical playback or global input hooks because they can observe or control real OS input.
 - When `TEMPLATE_AGENTS.md` changes or `codex-kit project status` requires reconciliation, use the global `codex-kit-reconcile-agents` skill; never replace this file wholesale or run `codex-kit project sync` on the user's behalf.
+- After completed product or build changes, use `.agents/skills/flowclicker-version` before final validation. Classify the task-owned diff by its highest SemVer impact; an explicit user-selected level wins.
 
 ## Roadmap
 See `PLANS.md` for current feature status, the active milestone, decisions, known gaps, and deferred work.

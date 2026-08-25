@@ -83,6 +83,23 @@ test('runtime banner reserves space and uses accessible idle, recording, and pla
   assert.equal((app.match(/setStatus\('Idle'\)/g) || []).length, 6);
 });
 
+test('packaged version appears below the main heading and titles only the main window', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  const config = JSON.parse(readFileSync(new URL('../src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
+  const capability = JSON.parse(readFileSync(new URL('../src-tauri/capabilities/default.json', import.meta.url), 'utf8'));
+  assert.match(html, /<h1>FlowClicker<\/h1>\s*<span class="version" id="appVersion"><\/span>/);
+  assert.match(styles, /\.topbar \{ height: 58px; flex: 0 0 58px;/);
+  assert.match(styles, /\.version \{ display: block;[^}]*color: var\(--subtle\);[^}]*font-size: 9px/);
+  assert.match(app, /const getVersion = T\?\.app\?\.getVersion/);
+  assert.match(app, /setTitle\(`FlowClicker v\$\{version\}`\)/);
+  assert.equal(config.version, undefined);
+  assert.equal(config.identifier, 'com.flowclicker.desktop');
+  assert.deepEqual(config.app.windows.map(({ title }) => title), ['FlowClicker', 'FlowClicker Editor', 'FlowClicker Overlay']);
+  assert.ok(capability.permissions.includes('core:window:allow-set-title'));
+});
+
 test('playback form maps repeat count, timer, until, and continuous modes', () => {
   const fields = Object.fromEntries(['playbackSpeed','repeatMode','repeatValue','repeatDuration','settleMs','holdMs','untilTime','restoreCursor','focusTarget'].map((id) => [id, { value: '', checked: false }]));
   playbackToForm({ playbackSpeed: 2, repeatMode: 'duration', repeatValue: 3, repeatUnit: 'minutes', settleMs: 4, holdMs: 5, restoreCursor: true, focusTargetWindow: false }, (id) => fields[id]);

@@ -1,0 +1,6 @@
+interface:
+  display_name: "FlowClicker Version"
+  short_description: "Classify and apply FlowClicker SemVer bumps"
+  default_prompt: "Use $flowclicker-version to classify the completed change and apply its version bump."
+policy:
+  allow_implicit_invocation: true

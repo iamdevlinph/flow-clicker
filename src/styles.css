@@ -36,7 +36,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .topbar { height: 58px; flex: 0 0 58px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: rgba(14,18,25,.96); }
 .brand { display: flex; align-items: center; gap: 8px; min-width: 0; }.brand > div:last-child { min-width: 0; }
 .brand-mark { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-weight: 800; letter-spacing: -.04em; background: linear-gradient(145deg, #6d8cff, #7654d7); box-shadow: 0 8px 30px rgba(109,140,255,.25); }
-.brand h1 { font-size: 14px; margin: 0; letter-spacing: -.02em; white-space: nowrap; }.brand p, .version { display: none; }
+.brand h1 { font-size: 14px; margin: 0; letter-spacing: -.02em; white-space: nowrap; }.version { display: block; margin-top: 1px; color: var(--subtle); font-size: 9px; line-height: 1; }
 .status-banner { flex: 0 0 22px; display: grid; place-items: center; width: 100%; background: var(--subtle); color: var(--text); font-size: 10px; font-weight: 700; }.status-banner.recording { background: var(--red); color: var(--bg); }.status-banner.playing { background: var(--green); color: var(--bg); }
 .topbar-actions { display: flex; align-items: center; gap: 4px; }
 .top-tabs { display: flex; gap: 3px; margin-right: 8px; }.top-tab { border: 0; background: transparent; color: var(--muted); padding: 7px 10px; }.top-tab.active { color: var(--text); background: #202a42; }

@@ -57,8 +57,11 @@ pub struct ClickRef<'a> {
     pub id: &'a str,
     pub screen_x: i32,
     pub screen_y: i32,
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     pub relative_x: Option<i32>,
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     pub relative_y: Option<i32>,
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     pub window_title: Option<&'a str>,
 }
 
