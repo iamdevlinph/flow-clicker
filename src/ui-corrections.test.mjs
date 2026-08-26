@@ -100,6 +100,17 @@ test('packaged version appears below the main heading and titles only the main w
   assert.ok(capability.permissions.includes('core:window:allow-set-title'));
 });
 
+test('data transfer reuses accessible settings and destructive dialog patterns', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  assert.match(html, /<div class="setting-title">Data transfer<\/div>[\s\S]*id="exportPortableBtn"[\s\S]*id="importPortableBtn"/);
+  assert.match(html, /id="portableImportModal"[\s\S]*role="dialog" aria-modal="true" aria-labelledby="portableImportHeading"[\s\S]*<textarea id="portableImportText"[\s\S]*id="choosePortableFileBtn"/);
+  assert.match(html, /id="portableConfirmModal"[\s\S]*id="portableConfirmMessage"[\s\S]*class="danger-ghost" id="confirmPortableImportBtn"/);
+  assert.match(app, /openDialog\('portableImportModal', 'portableImportText'\)/);
+  assert.match(app, /event\.key !== 'Escape'[\s\S]*closeDialog\('portableImportModal'\)[\s\S]*closeDialog\('portableConfirmModal'\)/);
+  assert.match(app, /const replacement = replaceWithPortableData[\s\S]*if \(!await saveState\(false, replacement\)\) \{[\s\S]*if \(editorWasOpen\)[\s\S]*if \(overlayWasVisible\)[\s\S]*return;[\s\S]*state = replacement/);
+});
+
 test('playback form maps repeat count, timer, until, and continuous modes', () => {
   const fields = Object.fromEntries(['playbackSpeed','repeatMode','repeatValue','repeatDuration','settleMs','holdMs','untilTime','restoreCursor','focusTarget'].map((id) => [id, { value: '', checked: false }]));
   playbackToForm({ playbackSpeed: 2, repeatMode: 'duration', repeatValue: 3, repeatUnit: 'minutes', settleMs: 4, holdMs: 5, restoreCursor: true, focusTargetWindow: false }, (id) => fields[id]);

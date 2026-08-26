@@ -8,6 +8,7 @@ import { normalizeFlowSelection, removeFlow } from './flow-lifecycle.mjs';
 import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 import { bindDurationInput } from './duration-input.mjs';
 import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatus, remainingSeconds } from './playback-status.mjs';
+import { exportPortableData, parsePortableData, replaceWithPortableData } from './data-transfer.mjs';
 
 (() => {
   const T = window.__TAURI__ || null;
@@ -52,6 +53,7 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
   let durationResume = null;
   let statusTimer = null;
   let stopRequested = false;
+  let pendingPortableData = null;
 
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const nowIso = () => new Date().toISOString();
@@ -149,16 +151,18 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
     return { version: 3, editorSize: normalizeEditorSize(state.editorSize), selectedFlowId: state.selectedFlowId, flows: state.flows, groups: state.groups, settings: state.settings };
   }
 
-  function saveState(showFeedback = false) {
+  function saveState(showFeedback = false, targetState = state) {
     clearTimeout(saveTimer);
-    const json = JSON.stringify(persistedState(), null, 2);
+    const json = JSON.stringify({ version: 3, editorSize: normalizeEditorSize(targetState.editorSize), selectedFlowId: targetState.selectedFlowId, flows: targetState.flows, groups: targetState.groups, settings: targetState.settings }, null, 2);
     saveQueue = saveQueue.then(async () => {
       try {
         if (invoke) await invoke('save_state', { stateJson: json });
         else localStorage.setItem('flowclicker-mock-state', json);
-        if (showFeedback) toast('Saved', `${state.flows.length} flow${state.flows.length === 1 ? '' : 's'} saved locally.`);
+        if (showFeedback) toast('Saved', `${targetState.flows.length} flow${targetState.flows.length === 1 ? '' : 's'} saved locally.`);
+        return true;
       } catch (err) {
         toast('Save failed', String(err), 'error');
+        return false;
       }
     });
     return saveQueue;
@@ -505,6 +509,43 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
   function updateImportCount() { $('importCount').textContent = `${importSelection.size} selected`; }
   function closeImportModal() { closeDialog('importModal'); }
 
+  function openPortableImport() {
+    if (recording || playing) return toast('Import unavailable', 'Stop recording or playback before replacing the library.', 'error');
+    $('portableImportText').value = '';
+    pendingPortableData = null;
+    openDialog('portableImportModal', 'portableImportText');
+  }
+
+  function stagePortableImport(json = $('portableImportText').value) {
+    if (recording || playing) return toast('Import unavailable', 'Stop recording or playback before replacing the library.', 'error');
+    try { pendingPortableData = parsePortableData(json); } catch (err) { pendingPortableData = null; return toast('Import rejected', String(err.message || err), 'error'); }
+    $('portableConfirmMessage').textContent = `Replace ${state.flows.length} current flow${state.flows.length === 1 ? '' : 's'} with ${pendingPortableData.flows.length} imported flow${pendingPortableData.flows.length === 1 ? '' : 's'} and ${pendingPortableData.groups.length} group${pendingPortableData.groups.length === 1 ? '' : 's'}?`;
+    closeDialog('portableImportModal');
+    openDialog('portableConfirmModal', 'cancelPortableConfirmBtn');
+  }
+
+  async function confirmPortableImport() {
+    if (!pendingPortableData || recording || playing) return closeDialog('portableConfirmModal');
+    const editorWasOpen = editorOpen;
+    const overlayWasVisible = mapVisible;
+    await hideOverlay();
+    let editorSize = state.editorSize;
+    editorOpen = false;
+    try { editorSize = normalizeEditorSize(await invoke('hide_editor')) || editorSize; } catch (_) {}
+    const replacement = replaceWithPortableData(state, pendingPortableData);
+    replacement.editorSize = editorSize;
+    if (!await saveState(false, replacement)) {
+      if (editorWasOpen) { try { await invoke('show_editor', { editorSize }); editorOpen = true; publishEditorSnapshot(); } catch (_) {} }
+      if (overlayWasVisible) await showOverlay(true);
+      return;
+    }
+    state = replacement;
+    combineQueue = []; importSelection = new Set(); selectedActionId = null; selectedActionIds = new Set(); pendingPortableData = null;
+    closeDialog('portableConfirmModal');
+    renderAll();
+    toast('Library imported', `${state.flows.length} flow${state.flows.length === 1 ? '' : 's'} imported. Local settings were retained.`);
+  }
+
   function confirmImport() {
     const dest = currentFlow();
     const source = state.flows.find((f) => f.id === $('importSourceFlow').value);
@@ -572,7 +613,7 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
     $('closeFlowSettingsBtn').addEventListener('click', () => closeDialog('flowSettingsModal'));
     document.addEventListener('click', (event) => {
       if (!event.target.closest('.library-menu-wrap')) closeLibraryMenu();
-      for (const id of ['importModal', 'combineModal', 'groupModal', 'libraryGroupModal', 'flowSettingsModal', 'deleteFlowModal']) if (event.target === $(id)) closeDialog(id);
+      for (const id of ['importModal', 'combineModal', 'groupModal', 'libraryGroupModal', 'flowSettingsModal', 'deleteFlowModal', 'portableImportModal', 'portableConfirmModal']) if (event.target === $(id)) closeDialog(id);
     });
     document.addEventListener('keydown', (event) => {
       const modal = document.querySelector('.modal-backdrop:not(.hidden) .modal');
@@ -585,7 +626,7 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
         return;
       }
       if (event.key !== 'Escape') return;
-      closeLibraryMenu(); closeSettingsModal(); hideOverlay(); closeCombineModal(); closeImportModal(); closeDialog('groupModal'); closeDialog('libraryGroupModal'); closeDialog('deleteFlowModal');
+      closeLibraryMenu(); closeSettingsModal(); hideOverlay(); closeCombineModal(); closeImportModal(); closeDialog('groupModal'); closeDialog('libraryGroupModal'); closeDialog('deleteFlowModal'); closeDialog('portableImportModal'); closeDialog('portableConfirmModal');
     });
     $('flowSearch').addEventListener('input', renderFlowList);
     ['playbackSpeed','repeatValue','settleMs','holdMs','untilTime'].forEach((id) => $(id).addEventListener('change', saveSettingsFromUi));
@@ -640,6 +681,17 @@ import { durationRemainder, durationResumeAfterEnd, durationToRun, playbackStatu
     $('importSelectAll').addEventListener('change', (e) => { const source=state.flows.find(f=>f.id===$('importSourceFlow').value); importSelection=new Set(e.target.checked?(source?.actions||[]).map(a=>a.id):[]); renderImportActionsFromSelection(source); });
     $('closeCombineBtn').addEventListener('click', closeCombineModal); $('cancelCombineBtn').addEventListener('click', closeCombineModal); $('confirmCombineBtn').addEventListener('click', confirmCombine);
     $('closeLibraryGroupBtn').addEventListener('click', () => closeDialog('libraryGroupModal')); $('cancelLibraryGroupBtn').addEventListener('click', () => closeDialog('libraryGroupModal'));
+    $('exportPortableBtn').addEventListener('click', async () => {
+      if (!invoke) return toast('Export requires the desktop build', 'The browser preview cannot open native files.', 'error');
+      try { if (await invoke('export_portable_data', { dataJson: exportPortableData(state), fileName: `FlowClicker-${new Date().toISOString().slice(0, 10)}.flowclicker.json` })) toast('Library exported', 'Flows and groups were saved.'); } catch (err) { toast('Export failed', String(err), 'error'); }
+    });
+    $('importPortableBtn').addEventListener('click', openPortableImport);
+    $('choosePortableFileBtn').addEventListener('click', async () => {
+      if (!invoke) return toast('File import requires the desktop build', 'Paste JSON in the box when using the browser preview.', 'error');
+      try { const json = await invoke('pick_portable_data'); if (json != null) { $('portableImportText').value = json; stagePortableImport(json); } } catch (err) { toast('Could not read import file', String(err), 'error'); }
+    });
+    $('closePortableImportBtn').addEventListener('click', () => closeDialog('portableImportModal')); $('cancelPortableImportBtn').addEventListener('click', () => closeDialog('portableImportModal')); $('stagePortableImportBtn').addEventListener('click', () => stagePortableImport());
+    $('closePortableConfirmBtn').addEventListener('click', () => closeDialog('portableConfirmModal')); $('cancelPortableConfirmBtn').addEventListener('click', () => closeDialog('portableConfirmModal')); $('confirmPortableImportBtn').addEventListener('click', confirmPortableImport);
   }
 
   function renderImportActionsFromSelection(source) {

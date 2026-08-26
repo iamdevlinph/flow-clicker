@@ -65,6 +65,12 @@
           <div id="platformNote" class="platform-note hidden"></div>
         </div>
 
+        <div class="setting-card">
+          <div class="setting-title">Data transfer</div>
+          <p class="microcopy">Export flows and groups to a portable file. Import replaces the library and keeps this device's hotkeys and playback settings.</p>
+          <div class="modal-actions transfer-actions"><button id="exportPortableBtn" type="button">Export</button><button class="primary" id="importPortableBtn" type="button">Import</button></div>
+        </div>
+
       </aside>
     </main>
   </div>
@@ -109,6 +115,10 @@
   <div class="modal-backdrop hidden" id="libraryGroupModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="libraryGroupHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="libraryGroupHeading">New group</h2></div><button class="icon-btn" id="closeLibraryGroupBtn" aria-label="Close group dialog">×</button></div><label class="field"><span>Name</span><input id="libraryGroupNameInput" autocomplete="off" /></label><div class="modal-actions"><button id="cancelLibraryGroupBtn">Cancel</button><button class="primary" id="saveLibraryGroupBtn">Save group</button></div></div></div>
 
   <div class="modal-backdrop hidden" id="deleteFlowModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="deleteFlowHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="deleteFlowHeading">Delete flow?</h2></div></div><p id="deleteFlowMessage" class="delete-flow-message"></p><div class="modal-actions"><button id="cancelDeleteFlowBtn">Cancel</button><button class="danger-ghost" id="confirmDeleteFlowBtn">Delete flow</button></div></div></div>
+
+  <div class="modal-backdrop hidden" id="portableImportModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="portableImportHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="portableImportHeading">Import library</h2></div><button class="icon-btn" id="closePortableImportBtn" aria-label="Close import dialog">×</button></div><p class="microcopy">Choose a .flowclicker.json file or paste its JSON below. Your local settings stay on this device.</p><label class="field"><span>Portable data JSON</span><textarea id="portableImportText" rows="10" spellcheck="false" aria-describedby="portableImportHint"></textarea></label><div id="portableImportHint" class="import-note">Import is checked before anything changes.</div><div class="modal-actions"><button id="choosePortableFileBtn" type="button">Choose file…</button><button id="cancelPortableImportBtn" type="button">Cancel</button><button class="primary" id="stagePortableImportBtn" type="button">Continue</button></div></div></div>
+
+  <div class="modal-backdrop hidden" id="portableConfirmModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="portableConfirmHeading"><div class="modal-head"><div><span class="eyebrow">Replace library</span><h2 id="portableConfirmHeading">Import this library?</h2></div><button class="icon-btn" id="closePortableConfirmBtn" aria-label="Close confirmation dialog">×</button></div><p id="portableConfirmMessage" class="delete-flow-message"></p><div class="import-note">This replaces all current flows and groups. Hotkeys, playback settings, and editor size remain unchanged.</div><div class="modal-actions"><button id="cancelPortableConfirmBtn" type="button">Cancel</button><button class="danger-ghost" id="confirmPortableImportBtn" type="button">Replace library</button></div></div></div>
 
   <div id="toastStack" class="toast-stack" aria-live="polite"></div>
   <script type="module" src="app.js"></script>

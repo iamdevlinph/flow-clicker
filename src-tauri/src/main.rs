@@ -17,6 +17,38 @@ use crate::{
 use enigo::{Enigo, Mouse, Settings};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WindowEvent};
+use tauri_plugin_dialog::DialogExt;
+
+#[tauri::command]
+fn export_portable_data(
+    app: AppHandle,
+    data_json: String,
+    file_name: String,
+) -> Result<bool, String> {
+    let path = app
+        .dialog()
+        .file()
+        .set_file_name(file_name)
+        .add_filter("FlowClicker data", &["flowclicker.json"])
+        .blocking_save_file()
+        .and_then(|value| value.into_path().ok());
+    if let Some(path) = path {
+        std::fs::write(path, data_json).map_err(|e| e.to_string())?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+#[tauri::command]
+fn pick_portable_data(app: AppHandle) -> Result<Option<String>, String> {
+    app.dialog()
+        .file()
+        .add_filter("FlowClicker data", &["flowclicker.json"])
+        .blocking_pick_file()
+        .and_then(|value| value.into_path().ok())
+        .map(|path| std::fs::read_to_string(path).map_err(|e| e.to_string()))
+        .transpose()
+}
 
 #[tauri::command]
 fn load_state() -> Result<Option<String>, String> {
@@ -221,6 +253,7 @@ fn overlay_marker_moved(
 fn main() {
     let runtime = Arc::new(RuntimeState::default());
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(runtime.clone())
         .on_window_event({
             let runtime = runtime.clone();
@@ -278,6 +311,8 @@ fn main() {
             show_editor,
             hide_editor,
             overlay_marker_moved,
+            export_portable_data,
+            pick_portable_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running FlowClicker");

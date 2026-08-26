@@ -114,6 +114,15 @@ is unavailable because no browser is connected. The skill validator is blocked
 because its host Python environment lacks `yaml`; manual metadata inspection and
 the skill's behavior tests pass.
 
+Portable-data evidence (2026-08-26): Settings can export schema-version-3 flows
+and groups to a dated `.flowclicker.json` file, or replace the library from a
+chosen file or pasted JSON after destructive confirmation. Strict validation
+and focused Node coverage verify round trips, source immutability, device-local
+setting preservation, empty libraries, malformed or unsupported data, invalid
+actions, duplicate IDs, and broken group references. Frontend syntax and
+whitespace checks pass. Native Rust validation is blocked by unavailable Linux
+GTK/pkg-config tooling; rendered comparison is unavailable in this environment.
+
 - [ ] Make the flow library the primary application view.
 - [ ] Put Edit, Duplicate, and Delete in each card's right-click menu.
 - [ ] Keep card dragging as the manual flow-ordering interaction.
@@ -139,7 +148,6 @@ the skill's behavior tests pass.
   of title text alone.
 - macOS window-relative tracking plus Accessibility permission-status UX.
 - Flow and action drag improvements not already implemented.
-- Import/export of `.flowclicker.json` files.
 - Remaining automated coverage for combine, import, repeat, and stop behavior.
 - Physical Windows and macOS smoke tests, including recording, playback,
   hotkeys, prompt cancellation, and prompt Stop response.
@@ -163,6 +171,9 @@ the skill's behavior tests pass.
 - Playback settings are shared by every flow and edited from any card's gear;
   the steps editor keeps row-local move, duplicate, and delete icon actions in
   an Actions column.
+- Portable exports contain flows and groups only. Portable import accepts a
+  chosen file or pasted JSON, replaces the library after confirmation, and
+  preserves device-local settings and editor size.
 - The main-window runtime state is always visible in a layout-reserving banner
   above the top bar: grey Idle, red Recording, and green Playing. The separate
   editor window is unchanged.
