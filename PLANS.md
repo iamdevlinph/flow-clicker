@@ -98,10 +98,14 @@ desktop comparison remains unavailable because the current environment lacks
 the Tauri/Linux GUI dependencies.
 
 Playback-banner evidence (2026-08-25): playback status now reports execution,
-repeat, duration, and local 12-hour until-time context; duration Stop retains a
-session-only whole-second remainder for the same flow and settings. Focused
-frontend checks, syntax, and whitespace validation pass; physical playback and
-rendered desktop comparison remain pending.
+repeat, duration, and local 12-hour until-time context. Focused frontend
+checks, syntax, and whitespace validation pass; physical playback and rendered
+desktop comparison remain pending.
+
+Duration persistence evidence (2026-08-27): stopping duration playback through
+the hotkey or editor Stop button saves the rounded-up whole-second remainder in
+shared playback settings, clamped to one second; natural completion, errors,
+other modes, and changed duration settings leave the configured value alone.
 
 Version-display evidence (2026-08-25): `Cargo.toml` is the single packaged
 version source at 1.1.0. The main header and main native window title obtain

@@ -83,6 +83,15 @@ test('runtime banner reserves space and uses accessible idle, recording, and pla
   assert.equal((app.match(/setStatus\('Idle'\)/g) || []).length, 6);
 });
 
+test('duration Stop persists only an active, unchanged duration', () => {
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(app, /durationResume|stopRequested|durationToRun|durationResumeAfterEnd/);
+  assert.match(app, /const active = activePlayback;\s*const canPersistDuration = !!active && playing && active\.playback\.repeatMode === 'duration';[\s\S]*await invoke\('stop_playback'\);[\s\S]*if \(!canPersistDuration\) return;[\s\S]*const remainder = active \? durationRemainder\(active, flowPlayback\(\)\) : null;/);
+  assert.match(app, /state\.settings\.playback\.repeatValue = remainder;\s*renderSettings\(\);\s*scheduleSave\(\);/);
+  assert.match(app, /else \{ clearPlaybackStatus\(\); runningFlowId = null; \}/);
+  assert.match(app, /playback-error'.*clearPlaybackStatus\(\); playing=false/);
+});
+
 test('packaged version appears below the main heading and titles only the main window', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');

@@ -19,22 +19,8 @@ export function remainingSeconds(totalSeconds, startedAt, now = Date.now()) {
 }
 
 export function durationRemainder(active, playback, now = Date.now()) {
-  if (playback.repeatMode !== 'duration' || playback.repeatValue !== active.configuredDuration) return null;
-  return {
-    flowId: active.flowId,
-    duration: active.configuredDuration,
-    remaining: remainingSeconds(active.durationSeconds, active.startedAt, now),
-  };
-}
-
-export function durationToRun(resume, flowId, duration, mode) {
-  return mode === 'duration' && resume?.flowId === flowId && resume.duration === duration
-    ? resume.remaining
-    : duration;
-}
-
-export function durationResumeAfterEnd(resume, stopRequested, errored = false) {
-  return stopRequested && !errored ? resume : null;
+  if (active.playback?.repeatMode !== 'duration' || playback.repeatMode !== 'duration' || playback.repeatValue !== active.configuredDuration) return null;
+  return Math.max(1, remainingSeconds(active.durationSeconds, active.startedAt, now));
 }
 
 export function playbackStatus({ mode, execution = 1, repeatValue = 1, remaining = 0, untilTime = null }) {
