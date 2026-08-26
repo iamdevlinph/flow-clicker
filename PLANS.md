@@ -123,6 +123,15 @@ actions, duplicate IDs, and broken group references. Frontend syntax and
 whitespace checks pass. Native Rust validation is blocked by unavailable Linux
 GTK/pkg-config tooling; rendered comparison is unavailable in this environment.
 
+Linux build-support evidence (2026-08-26): the Ubuntu-family x86_64 build path
+now installs missing Tauri/X11 prerequisites, builds AppImage and Debian
+bundles, and validates/copies them to `dist/FlowClicker.AppImage` and
+`dist/FlowClicker.deb`. Shell syntax, frontend tests and syntax, versioning, and
+whitespace checks pass. Package installation, Rust checks, the full bundle
+build, and artifact inspection are blocked on this host because `sudo` cannot
+prompt for its password; physical input and rendered desktop verification
+remain pending until an X11 desktop is available.
+
 - [ ] Make the flow library the primary application view.
 - [ ] Put Edit, Duplicate, and Delete in each card's right-click menu.
 - [ ] Keep card dragging as the manual flow-ordering interaction.

@@ -52,7 +52,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.icns"],
+    "icon": ["icons/icon.icns", "icons/icon.png"],
     "category": "Utility",
     "shortDescription": "Record and replay physical mouse click flows",
     "longDescription": "FlowClicker records click-only flows with delays and replays them through native OS mouse input."

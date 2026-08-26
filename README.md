@@ -9,7 +9,7 @@ FlowClicker has been redesigned as a cross-platform Tauri desktop app that recor
 - Physical mouse playback through the cross-platform Rust `enigo` crate.
 - Global click observation and hotkeys through `rdev`.
 - Windows foreground-window-relative coordinates.
-- macOS screen-coordinate path already shares the recorder/playback code; window-relative tracking is a later platform module.
+- macOS and Linux screen-coordinate playback paths already share the recorder/playback code; window-relative tracking is a later platform module.
 
 ## Core features
 
@@ -66,6 +66,55 @@ dist/FlowClicker.exe
 ```
 
 The first Cargo build downloads the Rust crates listed in `src-tauri/Cargo.toml`; end users do not need those packages installed separately.
+
+## Linux (Ubuntu-family x86_64)
+
+Build on Ubuntu, Lubuntu, or an Ubuntu-family derivative (including an Ubuntu
+WSL host) with an x86_64 kernel:
+
+```bash
+./scripts/build-linux.sh
+```
+
+The script installs only missing Tauri/X11 build packages and installs Rust
+stable and Tauri CLI 2 when they are not already available. It writes unsigned
+local artifacts to `dist/`:
+
+```text
+dist/FlowClicker.AppImage
+dist/FlowClicker.deb
+```
+
+To run the AppImage without installing it:
+
+```bash
+chmod +x FlowClicker.AppImage
+./FlowClicker.AppImage
+```
+
+If Lubuntu opens it as an archive, use the terminal commands above instead of
+double-clicking it.
+
+To install and launch the Debian package:
+
+```bash
+sudo apt install ./FlowClicker.deb
+flowclicker
+```
+
+If APT says the download is being performed unsandboxed because `_apt` cannot
+access the file, copy it to `/tmp` and install it from there:
+
+```bash
+cp FlowClicker.deb /tmp/
+sudo apt install /tmp/FlowClicker.deb
+```
+
+That message is only a warning if installation otherwise completes.
+
+Linux physical recording, playback, and global hotkeys currently require an
+X11 session. Linux playback is screen-coordinate-only; Wayland input support
+and Linux window-relative tracking are not included yet.
 
 ## macOS
 
