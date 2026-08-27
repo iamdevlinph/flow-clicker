@@ -1,4 +1,5 @@
 import { editorRowsHtml } from './editor-table.mjs';
+import { beginNameFocus, restoreNameFocus } from './editor-name-focus.mjs';
 
 const T = window.__TAURI__ || {};
 const emit = T.event?.emit;
@@ -6,6 +7,7 @@ const listen = T.event?.listen;
 const $ = (id) => document.getElementById(id);
 let snapshot = null;
 let selected = new Set();
+let editingNameActionId = null;
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>\'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 const send = (type, payload = {}) => emit?.('editor-intent', { type, ...payload });
 function render() {
@@ -18,11 +20,20 @@ function render() {
   $('showMapBtn').textContent = snapshot.mapVisible ? 'Hide click map' : 'Show click map'; $('showMapBtn').setAttribute('aria-pressed', String(!!snapshot.mapVisible));
   $('actionRows').innerHTML = editorRowsHtml(flow.actions, snapshot.mapVisible && snapshot.selectedActionId ? [snapshot.selectedActionId] : []);
   $('actionsEmpty').classList.toggle('hidden', flow.actions.length > 0);
+  const editingName = editingNameActionId;
+  editingNameActionId = null;
   $('actionRows').querySelectorAll('tr').forEach((row) => {
     const id = row.dataset.id;
     row.onclick = (event) => {
       if (event.target.closest('input, button, select, textarea, a')) return;
       selected = new Set([id]); send('select-action', { actionId: id, multi: false });
+    };
+    row.querySelector('.action-name').onfocus = (event) => {
+      if (beginNameFocus(selected, id, event.target)) {
+        selected = new Set([id]);
+        editingNameActionId = id;
+        send('select-action', { actionId: id, multi: false });
+      }
     };
     row.querySelector('.action-name').onchange = (event) => send('action-update', { actionId: id, field: 'name', value: event.target.value });
     row.querySelector('.action-delay')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'delayMs', value: event.target.value }));
@@ -37,6 +48,7 @@ function render() {
       if (type === 'delete') send('delete-action', { actionId: id });
     }));
   });
+  if (editingName) restoreNameFocus($('actionRows'), editingName);
 }
 const click = (id, type, payload) => $(id)?.addEventListener('click', () => send(type, typeof payload === 'function' ? payload() : payload));
 listen?.('editor-snapshot', (event) => { snapshot = event.payload; selected = new Set(snapshot.selectedActionIds || []); render(); });

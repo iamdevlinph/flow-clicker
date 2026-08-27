@@ -70,6 +70,16 @@ covered by the focused Node checks; code inspection confirms group saves use
 the existing autosave path without touching flows. Rendered desktop verification
 remains pending.
 
+Click-map interaction evidence (2026-08-28): closing the editor through its
+button or native title bar also hides the click map; the focused overlay handles
+Escape through the existing hide path. Focusing an action name makes it the
+primary selection and preserves full-value selection across the editor rerender.
+The overlay emphasizes only the primary selected click and clears emphasis for
+delays or no selection. Focused frontend coverage, JavaScript syntax checks,
+Rust formatting, 14 Rust tests, `cargo check`, and whitespace validation pass.
+Rendered comparison remains unavailable because no desktop browser tooling is
+connected; physical input was not exercised.
+
 Lifecycle/settings evidence (2026-08-24): empty-library normalization, deletion
 selection rules, and validated hotkey capture normalization are covered by
 focused Node checks; frontend syntax and whitespace checks pass. Rendered and
@@ -156,7 +166,7 @@ remain pending until an X11 desktop is available.
 - [ ] Open and stabilize the separate hidden editor OS window for flow editing.
 - [ ] Keep Settings and the closed-editor state compact.
 - [ ] Dismiss the Actions menu on click-away.
-- [ ] Make Escape dismiss the click-map overlay.
+- [x] Make Escape dismiss the click-map overlay.
 - [ ] Make Alt+F4 exit the application, including when the overlay has focus.
 - [ ] Keep the overlay as a separate OS window in the same Tauri process.
 - [ ] Remove frontend controller duplication and leave responsibilities in

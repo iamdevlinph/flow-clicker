@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { selectedFlows, toggleSelection } from './combine-selection.mjs';
 import { editorRowsHtml } from './editor-table.mjs';
+import { closeEditorWindow, handleEditorWindowClosed } from './editor-close.mjs';
+import { beginNameFocus, restoreNameFocus } from './editor-name-focus.mjs';
+import { dismissOverlayOnEscape, markerClass } from './overlay-interactions.mjs';
 import { flowRowMarkup, groupHeaderMarkup } from './flow-library.mjs';
 import { toggleLibraryGroup, updateLibraryGroups } from './library-group.mjs';
 import { moveFlow, moveFlowByKey } from './flow-ordering.mjs';
@@ -192,4 +195,52 @@ test('editor highlights only selected clicks for the click map', () => {
   const html = editorRowsHtml([{ id: 'click', type: 'click' }, { id: 'delay', type: 'delay' }], ['click', 'delay']);
   assert.match(html, /data-id="click" class="action-selected"/);
   assert.doesNotMatch(html, /data-id="delay" class="action-selected"/);
+});
+
+test('both editor close paths hide the overlay before persisting size', async () => {
+  const calls = [];
+  await closeEditorWindow(async () => calls.push('hide-map'), async () => ({ width: 1 }), async () => calls.push('save-size'));
+  assert.deepEqual(calls, ['hide-map', 'save-size']);
+  calls.length = 0;
+  await handleEditorWindowClosed({ width: 2 }, async () => calls.push('hide-map'), async () => calls.push('save-size'));
+  assert.deepEqual(calls, ['hide-map', 'save-size']);
+});
+
+test('name focus selects the full value before and after primary-selection rerender', () => {
+  const input = { selections: 0, focus() {}, select() { this.selections += 1; } };
+  assert.equal(beginNameFocus(new Set(), 'click', input), true);
+  globalThis.CSS = { escape: (value) => value };
+  restoreNameFocus({ querySelector: () => input }, 'click');
+  assert.equal(input.selections, 1);
+  assert.equal(beginNameFocus(new Set(['click']), 'click', input), false);
+  assert.equal(input.selections, 2);
+});
+
+test('overlay Escape dismisses once and marker emphasis clears for nonmatching selections', () => {
+  const calls = [];
+  const event = { key: 'Escape', preventDefault: () => calls.push('prevent'), stopPropagation: () => calls.push('stop') };
+  assert.equal(dismissOverlayOnEscape(event, () => calls.push('dismiss')), true);
+  assert.deepEqual(calls, ['prevent', 'stop', 'dismiss']);
+  assert.equal(dismissOverlayOnEscape({ key: 'Enter' }, () => calls.push('bad')), false);
+  assert.equal(markerClass(true, true), 'marker interactive selected');
+  assert.equal(markerClass(true, false), 'marker interactive');
+});
+
+test('editor and overlay wire focus, dismissal, and primary click selection', () => {
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  const editor = readFileSync(new URL('./editor.js', import.meta.url), 'utf8');
+  const overlay = readFileSync(new URL('./overlay.js', import.meta.url), 'utf8');
+  const overlayCss = readFileSync(new URL('./overlay.css', import.meta.url), 'utf8');
+  const rust = readFileSync(new URL('../src-tauri/src/main.rs', import.meta.url), 'utf8');
+
+  assert.match(app, /closeEditorWindow\(hideOverlay, \(\) => invoke\('hide_editor'\)/);
+  assert.match(app, /handleEditorWindowClosed\(event\.payload, hideOverlay/);
+  assert.match(app, /emitTo\('overlay', 'overlay-selection', \{ actionId: selectedActionId \}\)/);
+  assert.match(app, /listen\('overlay-dismiss-requested', \(\) => hideOverlay\(\)\)/);
+  assert.match(editor, /beginNameFocus\(selected, id, event\.target\)[\s\S]*send\('select-action', \{ actionId: id, multi: false \}\)[\s\S]*restoreNameFocus/);
+  assert.match(overlay, /markerClass\(payload\.interactive, point\.actionId === selectedActionId\)/);
+  assert.match(overlay, /listen\('overlay-selection'[\s\S]*selectedActionId = event\.payload\?\.actionId \|\| null/);
+  assert.match(overlay, /dismissOverlayOnEscape[\s\S]*'overlay-dismiss-requested'/);
+  assert.match(overlayCss, /\.marker\.selected \{/);
+  assert.match(rust, /overlay\.show\(\)[\s\S]*overlay\.set_focus\(\)/);
 });

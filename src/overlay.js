@@ -1,16 +1,19 @@
+import { dismissOverlayOnEscape, markerClass } from './overlay-interactions.mjs';
+
 (() => {
   const root = document.getElementById('overlayRoot');
   const badge = document.getElementById('overlayBadge');
   let payload = { points: [], interactive: false, originX: 0, originY: 0 };
   const tauri = window.__TAURI__;
   if (!tauri) return;
+  let selectedActionId = null;
 
   function render() {
     root.innerHTML = '';
     badge.textContent = payload.interactive ? 'FlowClicker · drag click points' : 'FlowClicker · click map';
     for (const point of payload.points || []) {
       const el = document.createElement('div');
-      el.className = `marker${payload.interactive ? ' interactive' : ''}`;
+      el.className = markerClass(payload.interactive, point.actionId === selectedActionId);
       el.textContent = point.label;
       el.style.left = `${point.x - payload.originX}px`;
       el.style.top = `${point.y - payload.originY}px`;
@@ -48,5 +51,12 @@
   tauri.event.listen('overlay-points', (event) => {
     payload = event.payload;
     render();
+  });
+  tauri.event.listen('overlay-selection', (event) => {
+    selectedActionId = event.payload?.actionId || null;
+    render();
+  });
+  document.addEventListener('keydown', (event) => {
+    dismissOverlayOnEscape(event, () => tauri.event.emitTo?.('main', 'overlay-dismiss-requested').catch(() => {}));
   });
 })();

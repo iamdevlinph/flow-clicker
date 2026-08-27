@@ -211,6 +211,7 @@ fn show_overlay(app: AppHandle, actions_json: String, interactive: bool) -> Resu
         });
     }
     overlay.show().map_err(|e| e.to_string())?;
+    overlay.set_focus().map_err(|e| e.to_string())?;
     let payload = OverlayPayload {
         points,
         interactive,

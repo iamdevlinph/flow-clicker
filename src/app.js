@@ -10,6 +10,7 @@ import { bindDurationInput } from './duration-input.mjs';
 import { durationRemainder, playbackStatus, remainingSeconds } from './playback-status.mjs';
 import { exportPortableData, parsePortableData, replaceWithPortableData } from './data-transfer.mjs';
 import { setActivityBadge, setPlaybackHud as updatePlaybackHud } from './playback-hud.mjs';
+import { closeEditorWindow, handleEditorWindowClosed } from './editor-close.mjs';
 
 (() => {
   const T = window.__TAURI__ || null;
@@ -218,6 +219,7 @@ import { setActivityBadge, setPlaybackHud as updatePlaybackHud } from './playbac
   function publishEditorSnapshot() {
     const snapshot = editorSnapshot();
     if (snapshot && emitTo) emitTo('editor', 'editor-snapshot', snapshot).catch(() => {});
+    if (mapVisible && emitTo) emitTo('overlay', 'overlay-selection', { actionId: selectedActionId }).catch(() => {});
   }
 
   async function openEditor(flow) {
@@ -231,10 +233,9 @@ import { setActivityBadge, setPlaybackHud as updatePlaybackHud } from './playbac
 
   async function closeEditor() {
     editorOpen = false;
-    try {
-      const size = await invoke('hide_editor');
+    try { await closeEditorWindow(hideOverlay, () => invoke('hide_editor'), async (size) => {
       if (size) { state.editorSize = normalizeEditorSize(size); await saveState(); }
-    } catch (_) {}
+    }); } catch (_) {}
   }
   function suspendEditorForModal() { if (!editorOpen) return; restoreEditor = true; invoke('hide_editor').catch(() => {}); }
   async function restoreEditorAfterModal() { if (!restoreEditor) return; restoreEditor = false; try { await invoke('show_editor', { editorSize: state.editorSize }); publishEditorSnapshot(); } catch (_) {} }
@@ -720,10 +721,13 @@ import { setActivityBadge, setPlaybackHud as updatePlaybackHud } from './playbac
   async function bindTauriEvents() {
     if (!listen) return;
     await listen('editor-intent', (event) => applyEditorIntent(event.payload));
+    await listen('overlay-dismiss-requested', () => hideOverlay());
     await listen('editor-window-closed', async (event) => {
       editorOpen = false;
-      const size = normalizeEditorSize(event.payload);
-      if (size) { state.editorSize = size; await saveState(); }
+      await handleEditorWindowClosed(event.payload, hideOverlay, async (payload) => {
+        const size = normalizeEditorSize(payload);
+        if (size) { state.editorSize = size; await saveState(); }
+      });
     });
     await listen('recorded-click', (event) => {
       const flow=currentFlow(); if(!flow)return; const c=event.payload; const a={id:uid(),type:'click',name:`Click ${clickCount(flow)+1}`,screenX:c.screenX,screenY:c.screenY,relativeX:c.relativeX,relativeY:c.relativeY,windowTitle:c.windowTitle,button:c.button === 'right' ? 'right' : 'left',delayMs:c.delayMs}; flow.actions.push(a); selectedActionId=a.id; touchFlow(flow); renderAll();
