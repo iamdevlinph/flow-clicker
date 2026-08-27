@@ -282,7 +282,7 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
     const search = $('flowSearch').value.trim().toLowerCase();
     renderFlowLibrary({ list: $('flowList'), groups: state.groups || [], flows: state.flows, selectedFlowId: state.selectedFlowId, combineQueue, runningFlowId, search, escapeHtml,
       onSelect: (flow) => { hideOverlay(); state.selectedFlowId = flow.id; selectedActionId = null; scheduleSave(); renderAll(); },
-      onEdit: openEditor, onCreateFlow: () => { const flow = newFlow(`Flow ${state.flows.length + 1}`); openEditor(flow); }, onSettings: openFlowSettings, onPlay: runFlow, onToggleCombine: toggleCombineFlow, onToggleGroup: (id) => { state.groups = toggleLibraryGroup(state.groups, id); scheduleSave(); renderFlowList(); }, onMenu: openFlowMenu, onRenameGroup: renameLibraryGroup, onDeleteGroup: deleteLibraryGroup, onMoveBefore: moveFlowBefore, onMoveToGroup: moveFlowToGroup,
+      onEdit: openEditor, onCreateFlow: () => newFlow(`Flow ${state.flows.length + 1}`), onSettings: openFlowSettings, onPlay: runFlow, onToggleCombine: toggleCombineFlow, onToggleGroup: (id) => { state.groups = toggleLibraryGroup(state.groups, id); scheduleSave(); renderFlowList(); }, onMenu: openFlowMenu, onRenameGroup: renameLibraryGroup, onDeleteGroup: deleteLibraryGroup, onMoveBefore: moveFlowBefore, onMoveToGroup: moveFlowToGroup,
       moveByKey: (flow, delta) => { const moved = moveFlowByKey(state.flows, flow.id, delta); if (moved === state.flows) return false; state.flows = moved; touchFlow(state.flows.find((candidate) => candidate.id === flow.id)); renderFlowList(); return true; },
       announce: (flow, direction) => toast('Flow reordered', `${flow.name} moved ${direction}.`),
     });
@@ -318,7 +318,7 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
     menu.onclick = (event) => { const choice = event.target.dataset.menu; if (choice === 'edit') openEditor(flow); if (choice === 'duplicate') duplicateFlow(flow); if (choice === 'delete') deleteFlow(flow); menu.remove(); };
     setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
   }
-  function duplicateFlow(source) { const { playback: _playback, ...copy } = structuredClone(source); copy.id = uid(); copy.name = `${source.name} copy`; copy.actions = source.actions.map((action) => deepActionCopy(action)); copy.createdAt = nowIso(); copy.updatedAt = nowIso(); state.flows.splice(state.flows.indexOf(source) + 1, 0, copy); state.selectedFlowId = copy.id; selectedActionId = null; scheduleSave(); renderAll(); openEditor(copy); }
+  function duplicateFlow(source) { const { playback: _playback, ...copy } = structuredClone(source); copy.id = uid(); copy.name = `${source.name} copy`; copy.actions = source.actions.map((action) => deepActionCopy(action)); copy.createdAt = nowIso(); copy.updatedAt = nowIso(); state.flows.splice(state.flows.indexOf(source) + 1, 0, copy); state.selectedFlowId = copy.id; selectedActionId = null; scheduleSave(); renderAll(); }
   function createLibraryGroup() { openLibraryGroupModal(null); }
   function openLibraryGroupModal(group) {
     $('libraryGroupHeading').textContent = group ? 'Rename group' : 'New group';
@@ -602,7 +602,7 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
 
   function bindUi() {
     const closeLibraryMenu = () => { $('libraryMenu').classList.add('hidden'); $('libraryMenuBtn').setAttribute('aria-expanded', 'false'); };
-    $('newFlowBtn').addEventListener('click', () => { const flow = newFlow(`Flow ${state.flows.length + 1}`); openEditor(flow); });
+    $('newFlowBtn').addEventListener('click', () => newFlow(`Flow ${state.flows.length + 1}`));
     $('libraryMenuBtn').addEventListener('click', (event) => { event.stopPropagation(); const hidden = $('libraryMenu').classList.toggle('hidden'); $('libraryMenuBtn').setAttribute('aria-expanded', String(!hidden)); });
     $('newGroupBtn').addEventListener('click', () => { closeLibraryMenu(); createLibraryGroup(); });
     $('combineMenuBtn').addEventListener('click', () => { closeLibraryMenu(); openCombineModal(); });

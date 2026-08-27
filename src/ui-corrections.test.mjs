@@ -92,6 +92,16 @@ test('duration Stop persists only an active, unchanged duration', () => {
   assert.match(app, /playback-error'.*clearPlaybackStatus\(\); playing=false/);
 });
 
+test('creating and duplicating flows preserve editor visibility', () => {
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  assert.match(app, /onEdit: openEditor, onCreateFlow: \(\) => newFlow/);
+  assert.match(app, /newFlowBtn'\)\.addEventListener\('click', \(\) => newFlow/);
+  assert.match(app, /choice === 'edit'\) openEditor\(flow\)/);
+  assert.doesNotMatch(app, /onCreateFlow:[^\n]*openEditor/);
+  assert.doesNotMatch(app, /newFlowBtn'\)[^\n]*openEditor/);
+  assert.doesNotMatch(app, /function duplicateFlow\([^\n]*openEditor/);
+});
+
 test('packaged version appears below the main heading and titles only the main window', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');

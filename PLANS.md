@@ -197,6 +197,10 @@ pending, so the result remains **NOT RUN** and no successor-app work may start.
   copying, and portable transfer; legacy missing buttons default to left.
   Focused Node and Rust checks pass; rendered and physical input verification
   remain pending.
+- Flow-creation evidence (2026-08-28): top-bar creation, empty-library creation,
+  and duplication select and save the new flow without changing editor-window
+  visibility. Explicit double-click and Edit-menu actions still open the editor;
+  focused frontend checks, JavaScript syntax, and whitespace validation pass.
 - The main-window runtime state is always visible in a layout-reserving banner
   above the top bar: grey Idle, red Recording, and green Playing. The separate
   editor window is unchanged.
