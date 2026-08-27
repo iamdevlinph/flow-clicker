@@ -13,6 +13,21 @@ then from this directory run:
 cargo tauri dev --manifest-path src-tauri/Cargo.toml
 ```
 
+To cross-build the executable from WSL, run from the repository root:
+
+```text
+./scripts/build-webview2-poc-windows-wsl.sh
+```
+
+This writes `dist/FlowClicker-WebView2-Input-POC.exe`. Prerequisites:
+
+```text
+sudo apt install clang lld llvm file
+cargo install --locked cargo-xwin
+```
+
+Rust must be installed through `rustup`.
+
 The `game` window starts at `about:blank`, installs diagnostics, then navigates
 only to `https://pockieninja.online/` (including subdomains). Its persistent
 profile is `%LOCALAPPDATA%\FlowClicker\webview-profile`.
