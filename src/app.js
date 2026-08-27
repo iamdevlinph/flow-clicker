@@ -9,6 +9,7 @@ import { hotkeysOverlap, normalizeHotkeyEvent } from './hotkey.mjs';
 import { bindDurationInput } from './duration-input.mjs';
 import { durationRemainder, playbackStatus, remainingSeconds } from './playback-status.mjs';
 import { exportPortableData, parsePortableData, replaceWithPortableData } from './data-transfer.mjs';
+import { setActivityBadge, setPlaybackHud as updatePlaybackHud } from './playback-hud.mjs';
 
 (() => {
   const T = window.__TAURI__ || null;
@@ -100,6 +101,10 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
     const el = $('runtimeStatus');
     el.className = `status-banner ${kind}`.trim();
     el.textContent = text;
+  }
+
+  async function setPlaybackHud(active) {
+    return updatePlaybackHud(invoke, document.body, active);
   }
 
   function refreshPlaybackStatus() {
@@ -396,6 +401,7 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
       await hideOverlay();
       await invoke('start_recording');
       recording = true;
+      await setActivityBadge(invoke, 'recording');
       publishEditorSnapshot();
       setStatus('Recording', 'recording');
       toast('Recording started', `Use ${state.settings.recordHotkey} to stop without returning to FlowClicker.`);
@@ -406,6 +412,7 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
     if (!invoke) { recording = false; publishEditorSnapshot(); setStatus('Idle'); return; }
     try { await invoke('stop_recording'); } catch (_) {}
     recording = false;
+    await setActivityBadge(invoke, 'idle');
     publishEditorSnapshot();
     setStatus('Idle');
     toast('Recording stopped', `${currentFlow()?.actions.length || 0} actions in the current flow.`);
@@ -432,10 +439,13 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
       untilTime: nextDeadline(playback.untilTime),
     };
     try {
+      if (editorOpen) await closeEditor();
       await hideOverlay();
+      await setPlaybackHud(true);
+      await setActivityBadge(invoke, 'playing');
       await invoke('play_flow', { actionsJson: JSON.stringify(flow.actions), optionsJson: JSON.stringify(options) });
       publishEditorSnapshot();
-    } catch (err) { clearPlaybackStatus(); playing = false; runningFlowId = null; renderFlowList(); setStatus('Idle'); toast('Playback failed', String(err), 'error'); }
+    } catch (err) { await setPlaybackHud(false); await setActivityBadge(invoke, 'idle'); clearPlaybackStatus(); playing = false; runningFlowId = null; renderFlowList(); setStatus('Idle'); toast('Playback failed', String(err), 'error'); }
   }
 
   async function stopPlayback() {
@@ -724,10 +734,11 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
       playing = event.payload === 'playing';
       if (playing) { if (!runningFlowId) runningFlowId = state.selectedFlowId; beginStatusTimer(); }
       else { clearPlaybackStatus(); runningFlowId = null; }
+      if (!playing) { setPlaybackHud(false); setActivityBadge(invoke, 'idle'); }
       publishEditorSnapshot(); renderFlowList(); if (!playing) setStatus('Idle'); if(!playing) toast('Playback finished');
     });
     await listen('playback-progress', (event) => { if (activePlayback && Number(event.payload?.execution) > 0) { activePlayback.execution = Number(event.payload.execution); refreshPlaybackStatus(); } });
-    await listen('playback-error', (event) => { clearPlaybackStatus(); playing=false; runningFlowId = null; publishEditorSnapshot(); renderFlowList(); setStatus('Idle'); toast('Playback error', String(event.payload), 'error'); });
+    await listen('playback-error', (event) => { clearPlaybackStatus(); playing=false; setPlaybackHud(false); setActivityBadge(invoke, 'idle'); runningFlowId = null; publishEditorSnapshot(); renderFlowList(); setStatus('Idle'); toast('Playback error', String(event.payload), 'error'); });
     await listen('input-listener-error', (event) => toast('Global input listener failed', String(event.payload), 'error'));
     await listen('overlay-action-moved', async (event) => {
       const flow=currentFlow(); const move=event.payload; const action=findAction(flow?.actions, move.actionId); if(!action||action.type!=='click')return; await updateClickPosition(action,move.screenX,move.screenY); toast('Click point moved', `${action.name} → ${move.screenX}, ${move.screenY}`);

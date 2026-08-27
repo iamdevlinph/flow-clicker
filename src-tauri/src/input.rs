@@ -51,6 +51,7 @@ pub struct RuntimeState {
     hotkeys: Mutex<Hotkeys>,
     pressed: Mutex<HashSet<String>>,
     latches: Mutex<Latches>,
+    pub hud: Mutex<Option<crate::hud::HudWindowState>>,
 }
 
 impl Default for RuntimeState {
@@ -64,6 +65,7 @@ impl Default for RuntimeState {
             hotkeys: Mutex::new(Hotkeys::default()),
             pressed: Mutex::new(HashSet::new()),
             latches: Mutex::new(Latches::default()),
+            hud: Mutex::new(None),
         }
     }
 }

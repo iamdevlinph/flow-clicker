@@ -102,6 +102,18 @@ repeat, duration, and local 12-hour until-time context. Focused frontend
 checks, syntax, and whitespace validation pass; physical playback and rendered
 desktop comparison remain pending.
 
+Playback HUD and activity badge evidence (2026-08-28): playback temporarily
+reuses the main window as a compact 220×36 logical-pixel, frameless, always-on-top,
+unfocusable, click-through HUD clamped to the current monitor work area. The
+editor and click-map overlay are hidden for playback and the main window's
+size, position, decorations, and stacking are restored after stop, completion,
+or failure. The existing accessible runtime status is the only HUD content;
+recording keeps the normal UI. Native activity commands apply green playback,
+red recording, and normal idle app-icon badges; badge/HUD failures are
+nonfatal. Focused Node checks, syntax, and whitespace validation pass; native
+Rust validation and rendered desktop comparison remain unavailable here
+because the required GUI/dependency environment is absent.
+
 Duration persistence evidence (2026-08-27): stopping duration playback through
 the hotkey or editor Stop button saves the rounded-up whole-second remainder in
 shared playback settings, clamped to one second; natural completion, errors,

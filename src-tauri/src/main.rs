@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod activity_badge;
 mod editor_window;
+mod hud;
 mod input;
 mod models;
 mod platform;
@@ -140,6 +142,20 @@ fn retarget_click(window_title: Option<String>, screen_x: i32, screen_y: i32) ->
 #[tauri::command]
 fn platform_info() -> PlatformInfo {
     platform::info()
+}
+
+#[tauri::command]
+fn set_playback_hud(
+    app: AppHandle,
+    runtime: State<'_, Arc<RuntimeState>>,
+    active: bool,
+) -> Result<(), String> {
+    hud::set_playback_hud(&app, runtime.inner().as_ref(), active)
+}
+
+#[tauri::command]
+fn set_activity_badge(app: AppHandle, activity: String) -> Result<(), String> {
+    activity_badge::set(&app, &activity)
 }
 
 #[tauri::command]
@@ -309,6 +325,8 @@ fn main() {
             cursor_snapshot,
             retarget_click,
             platform_info,
+            set_playback_hud,
+            set_activity_badge,
             show_overlay,
             hide_overlay,
             show_editor,

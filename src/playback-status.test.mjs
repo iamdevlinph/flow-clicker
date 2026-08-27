@@ -6,6 +6,7 @@ test('formats playback status for every mode', () => {
   assert.equal(playbackStatus({ mode: 'continuous', execution: 1 }), 'Playing (1)');
   assert.equal(playbackStatus({ mode: 'cycles', execution: 1, repeatValue: 100 }), 'Playing (1/100)');
   assert.equal(playbackStatus({ mode: 'duration', remaining: 8520 }), 'Playing (2:22:00 left)');
+  assert.equal(playbackStatus({ mode: 'duration', remaining: 65 }), 'Playing (1:05 left)');
   assert.equal(playbackStatus({ mode: 'continuous', untilTime: '14:00' }), 'Playing (until 2:00pm)');
 });
 
