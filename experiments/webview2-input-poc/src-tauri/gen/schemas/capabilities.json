@@ -1,0 +1,1 @@
+{"control-only":{"identifier":"control-only","description":"Only the local control window may invoke POC commands.","local":true,"windows":["control"],"permissions":["core:default","core:event:default"]}}

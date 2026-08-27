@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trusted Input POC</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<main>
+  <header><div class="brand-mark">FC</div><div><p class="eyebrow">Disposable experiment · Stage A</p><h1>WebView2 trusted-input proof</h1></div></header>
+  <p id="status" class="status" role="status" aria-live="polite">NOT RUN</p>
+  <section class="card"><h2>Game window</h2><p class="muted">A separate native WebView2 window is created hidden, instrumented, navigated, then shown.</p><div class="actions"><button id="open">Open game</button><button id="focus">Focus</button><button id="reload">Reload</button><button id="close">Close</button></div></section>
+  <section class="card"><h2>Trusted replay gate</h2><p class="muted">Choose a resettable control in the game. Capture uses the physical mouse; replay never moves it.</p><div class="actions"><button id="arm" class="primary">Arm physical capture</button><button id="replay" class="primary">Replay last click</button><button id="clear">Clear test</button></div><div class="timing"><label>Settle <input id="settle" type="number" min="0" max="5000" value="12"> ms</label><label>Hold <input id="hold" type="number" min="0" max="5000" value="30"> ms</label></div></section>
+  <section class="card"><h2>Evidence</h2><dl><dt>Physical coordinate / viewport</dt><dd id="physical">—</dd><dt>Cursor before / after</dt><dd id="cursor">—</dd><dt>Cursor moved</dt><dd id="moved">—</dd><dt>CDP</dt><dd id="cdp">—</dd></dl><h3>Ordered events</h3><pre id="events" aria-live="polite">—</pre><p class="confirm"><label><input id="physicalConfirm" type="checkbox"> Physical click activated the chosen control</label><label><input id="replayConfirm" type="checkbox"> Replay activated the chosen control</label></p></section>
+  <section class="card"><h2>Backend self-test</h2><p class="muted">Calls one harmless valid CDP method and one invalid method.</p><button id="selfTest">Run backend self-test</button><pre id="selfTestResult">—</pre></section>
+</main><script type="module" src="app.js"></script></body></html>

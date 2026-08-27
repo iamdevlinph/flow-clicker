@@ -156,6 +156,11 @@ remain pending until an X11 desktop is available.
 
 ## Deferred roadmap
 
+Parallel WebView2 experiment (2026-08-27): disposable Stage A trusted-input
+POC added under `experiments/webview2-input-poc/`. Automated contract tests pass
+on macOS; Windows bridge compilation and the explicitly approved live proof are
+pending, so the result remains **NOT RUN** and no successor-app work may start.
+
 - Multi-monitor overlay selection and virtual-desktop coverage.
 - Stronger Windows matching using process executable and HWND metadata instead
   of title text alone.
