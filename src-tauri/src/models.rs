@@ -13,12 +13,22 @@ pub struct WindowSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordedClick {
+    #[serde(default)]
+    pub button: ClickButton,
     pub screen_x: i32,
     pub screen_y: i32,
     pub relative_x: Option<i32>,
     pub relative_y: Option<i32>,
     pub window_title: Option<String>,
     pub delay_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ClickButton {
+    #[default]
+    Left,
+    Right,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,6 +41,8 @@ pub enum FlowAction {
     Click {
         id: String,
         name: String,
+        #[serde(default)]
+        button: ClickButton,
         screen_x: i32,
         screen_y: i32,
         relative_x: Option<i32>,
@@ -230,7 +242,7 @@ pub struct PlatformInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::{FlowAction, PlaybackOptions, RepeatMode, RepeatUnit};
+    use super::{ClickButton, FlowAction, PlaybackOptions, RepeatMode, RepeatUnit};
 
     #[test]
     fn deserializes_frontend_flow_actions() {
@@ -255,6 +267,36 @@ mod tests {
     }
 
     #[test]
+    fn defaults_legacy_clicks_and_serializes_right_clicks() {
+        let legacy: FlowAction = serde_json::from_str(
+            r#"{"type":"click","id":"c","name":"C","screenX":1,"screenY":2,"delayMs":0}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            legacy,
+            FlowAction::Click {
+                button: ClickButton::Left,
+                ..
+            }
+        ));
+        let right = FlowAction::Click {
+            id: "c".into(),
+            name: "C".into(),
+            button: ClickButton::Right,
+            screen_x: 1,
+            screen_y: 2,
+            relative_x: None,
+            relative_y: None,
+            window_title: None,
+            delay_ms: 0,
+        };
+        assert_eq!(serde_json::to_value(right).unwrap()["button"], "right");
+        assert!(serde_json::from_str::<FlowAction>(
+            r#"{"type":"click","id":"c","name":"C","screenX":1,"screenY":2,"delayMs":0,"button":"middle"}"#,
+        ).is_err());
+    }
+
+    #[test]
     fn validates_groups_and_counts_repeated_clicks() {
         let group = FlowAction::Group {
             id: "g".into(),
@@ -268,6 +310,7 @@ mod tests {
                 relative_x: None,
                 relative_y: None,
                 window_title: None,
+                button: ClickButton::Left,
                 delay_ms: 0,
             }],
         };

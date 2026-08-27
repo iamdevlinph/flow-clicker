@@ -246,8 +246,9 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
       if (intent.field === 'delayMs') action.delayMs = Math.max(0, Number(intent.value) || 0);
       if (intent.field === 'screenX') action.screenX = Math.round(Number(intent.value) || 0);
       if (intent.field === 'screenY') action.screenY = Math.round(Number(intent.value) || 0);
+      if (intent.field === 'button' && (intent.value === 'left' || intent.value === 'right')) action.button = intent.value;
     }
-    if (intent.type === 'add-click') flow.actions.push({ id: uid(), type: 'click', name: `Click ${clickCount(flow) + 1}`, screenX: 0, screenY: 0, delayMs: 0 });
+    if (intent.type === 'add-click') flow.actions.push({ id: uid(), type: 'click', name: `Click ${clickCount(flow) + 1}`, screenX: 0, screenY: 0, button: 'left', delayMs: 0 });
     if (intent.type === 'add-delay') flow.actions.push({ id: uid(), type: 'delay', name: `Delay ${flow.actions.filter((a) => a.type === 'delay').length + 1}`, delayMs: 500 });
     if (intent.type === 'delete-action' && action) flow.actions = flow.actions.filter((candidate) => candidate.id !== action.id);
     if (intent.type === 'move-action' && action) { const index = flow.actions.indexOf(action); const next = index + Number(intent.delta || 0); if (next >= 0 && next < flow.actions.length) [flow.actions[index], flow.actions[next]] = [flow.actions[next], flow.actions[index]]; }
@@ -715,7 +716,7 @@ import { exportPortableData, parsePortableData, replaceWithPortableData } from '
       if (size) { state.editorSize = size; await saveState(); }
     });
     await listen('recorded-click', (event) => {
-      const flow=currentFlow(); if(!flow)return; const c=event.payload; const a={id:uid(),type:'click',name:`Click ${clickCount(flow)+1}`,screenX:c.screenX,screenY:c.screenY,relativeX:c.relativeX,relativeY:c.relativeY,windowTitle:c.windowTitle,delayMs:c.delayMs}; flow.actions.push(a); selectedActionId=a.id; touchFlow(flow); renderAll();
+      const flow=currentFlow(); if(!flow)return; const c=event.payload; const a={id:uid(),type:'click',name:`Click ${clickCount(flow)+1}`,screenX:c.screenX,screenY:c.screenY,relativeX:c.relativeX,relativeY:c.relativeY,windowTitle:c.windowTitle,button:c.button === 'right' ? 'right' : 'left',delayMs:c.delayMs}; flow.actions.push(a); selectedActionId=a.id; touchFlow(flow); renderAll();
     });
     await listen('hotkey-record', () => { if (!capturingHotkey) return recording ? stopRecording() : startRecording(); });
     await listen('hotkey-play', () => { if (!capturingHotkey) return playing ? stopPlayback() : runFlow(); });

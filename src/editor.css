@@ -3,9 +3,10 @@ html, body { min-width: 720px; min-height: 100%; } body { overflow: hidden; }
 .action-table th:nth-child(2), .action-table td:nth-child(2) { width: 72px; }
 .action-table th:nth-child(3), .action-table td:nth-child(3) { width: 160px; max-width: 160px; }
 .action-table th:nth-child(4), .action-table td:nth-child(4), .action-table th:nth-child(5), .action-table td:nth-child(5) { width: 74px; }
-.action-table th:nth-child(6), .action-table td:nth-child(6) { width: 88px; }
-.action-table th:nth-child(7), .action-table td:nth-child(7) { width: 1%; white-space: nowrap; }
+.action-table th:nth-child(6), .action-table td:nth-child(6) { width: 82px; }
+.action-table th:nth-child(7), .action-table td:nth-child(7) { width: 88px; }
 .action-table th:nth-child(8), .action-table td:nth-child(8) { width: 1%; white-space: nowrap; }
+.action-table th:nth-child(9), .action-table td:nth-child(9) { width: 1%; white-space: nowrap; }
 .action-table .compact-input { min-width: 0; width: 100%; }
 .delay-input { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .delay-input .compact-input { width: 56px; }

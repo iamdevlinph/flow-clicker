@@ -10,10 +10,12 @@ function validateAction(action, ids, nested = false) {
   if (!isObject(action) || !isId(action.id) || ids.has(action.id) || !isId(action.name)) throw new Error('Invalid or duplicate action ID');
   ids.add(action.id);
   if (action.type === 'click') {
-    if (!own(action, ['type', 'id', 'name', 'screenX', 'screenY', 'relativeX', 'relativeY', 'windowTitle', 'delayMs'])
+    if (!own(action, ['type', 'id', 'name', 'screenX', 'screenY', 'relativeX', 'relativeY', 'windowTitle', 'button', 'delayMs'])
       || !i32(action.screenX) || !i32(action.screenY) || !integer(action.delayMs)
+      || (action.button !== undefined && action.button !== 'left' && action.button !== 'right')
       || (action.relativeX != null && !i32(action.relativeX)) || (action.relativeY != null && !i32(action.relativeY))
       || (action.windowTitle != null && typeof action.windowTitle !== 'string')) throw new Error('Invalid click action');
+    if (action.button === undefined) action.button = 'left';
     return;
   }
   if (action.type === 'delay') {

@@ -43,11 +43,14 @@ test('normalizes editor size without mutating persisted state', () => {
 
 test('copies grouped actions with fresh recursive ids', () => {
   let id = 0;
-  const source = { id: 'g', type: 'group', repeatCount: 3, actions: [{ id: 'c', type: 'click' }] };
+  const source = { id: 'g', type: 'group', repeatCount: 3, actions: [{ id: 'c', type: 'click', button: 'right' }] };
   const copy = copyAction(source, () => String(++id));
   assert.deepEqual([copy.id, copy.actions[0].id], ['1', '2']);
+  assert.equal(copy.actions[0].button, 'right');
   assert.equal(actionClickCount(copy), 3);
   assert.equal(source.actions[0].id, 'c');
+  assert.equal(groupContiguous(source.actions, ['c'], () => 'group').group.actions[0].button, 'right');
+  assert.equal(combineFlows([{ name: 'A', actions: [source] }], () => 'combined').actions[0].actions[0].button, 'right');
 });
 
 test('groups only contiguous leaves and ungroups without copying', () => {

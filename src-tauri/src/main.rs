@@ -10,8 +10,8 @@ mod storage;
 use crate::{
     input::RuntimeState,
     models::{
-        FlowAction, OverlayMove, OverlayPayload, OverlayPoint, PlatformInfo, PlaybackOptions,
-        RecordedClick,
+        ClickButton, FlowAction, OverlayMove, OverlayPayload, OverlayPoint, PlatformInfo,
+        PlaybackOptions, RecordedClick,
     },
 };
 use enigo::{Enigo, Mouse, Settings};
@@ -113,6 +113,7 @@ fn cursor_snapshot() -> Result<RecordedClick, String> {
         _ => (None, None),
     };
     Ok(RecordedClick {
+        button: ClickButton::Left,
         screen_x: x,
         screen_y: y,
         relative_x: rx,
@@ -126,6 +127,7 @@ fn cursor_snapshot() -> Result<RecordedClick, String> {
 fn retarget_click(window_title: Option<String>, screen_x: i32, screen_y: i32) -> RecordedClick {
     let (rx, ry) = platform::retarget(window_title.as_deref(), screen_x, screen_y);
     RecordedClick {
+        button: ClickButton::Left,
         screen_x,
         screen_y,
         relative_x: rx,
@@ -283,6 +285,7 @@ fn main() {
                         .store(true, std::sync::atomic::Ordering::SeqCst);
                     if let Ok(mut mouse) = Enigo::new(&Settings::default()) {
                         let _ = mouse.button(enigo::Button::Left, enigo::Direction::Release);
+                        let _ = mouse.button(enigo::Button::Right, enigo::Direction::Release);
                     }
                     if let Some(overlay) = window.app_handle().get_webview_window("overlay") {
                         let _ = overlay.hide();

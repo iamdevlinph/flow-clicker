@@ -14,9 +14,13 @@ A click action is flat and serializes directly to the Rust `FlowAction::Click` v
   "relativeX": 261,
   "relativeY": 412,
   "windowTitle": "Pockie Ninja — Mozilla Firefox",
+  "button": "left",
   "delayMs": 830
 }
 ```
+
+`button` is `left` or `right`. It defaults to `left` when omitted for
+backward compatibility; other values are invalid.
 
 A delay action:
 

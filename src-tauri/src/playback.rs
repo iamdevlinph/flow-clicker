@@ -1,6 +1,6 @@
 use crate::{
     input::RuntimeState,
-    models::{FlowAction, PlaybackOptions, RepeatMode, RepeatUnit},
+    models::{ClickButton, FlowAction, PlaybackOptions, RepeatMode, RepeatUnit},
     platform,
 };
 use enigo::{Button as EnigoButton, Coordinate, Direction, Enigo, Mouse, Settings};
@@ -10,6 +10,13 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::{AppHandle, Emitter};
+
+fn enigo_button(button: ClickButton) -> EnigoButton {
+    match button {
+        ClickButton::Left => EnigoButton::Left,
+        ClickButton::Right => EnigoButton::Right,
+    }
+}
 
 fn should_stop(runtime: &RuntimeState, options: &PlaybackOptions, started: Instant) -> bool {
     runtime.stop_playback.load(Ordering::SeqCst)
@@ -188,7 +195,12 @@ fn play_action(
         FlowAction::Delay { delay_ms, .. } => {
             interruptible_sleep(*delay_ms, options.speed, runtime, options, started)
         }
-        FlowAction::Click { name, delay_ms, .. } => {
+        FlowAction::Click {
+            name,
+            button,
+            delay_ms,
+            ..
+        } => {
             if should_stop(runtime, options, started)
                 || !interruptible_sleep(*delay_ms, options.speed, runtime, options, started)
             {
@@ -211,7 +223,8 @@ fn play_action(
             if !interruptible_sleep(options.settle_ms, 1.0, runtime, options, started) {
                 return false;
             }
-            if enigo.button(EnigoButton::Left, Direction::Press).is_err() {
+            let button = enigo_button(*button);
+            if enigo.button(button, Direction::Press).is_err() {
                 let _ = app.emit(
                     "playback-error",
                     format!("Could not press mouse for action {name}"),
@@ -220,7 +233,7 @@ fn play_action(
             }
             // Always release after a press, even when cancellation arrives during the hold.
             let _ = interruptible_sleep(options.hold_ms, 1.0, runtime, options, started);
-            let _ = enigo.button(EnigoButton::Left, Direction::Release);
+            let _ = enigo.button(button, Direction::Release);
             if runtime.stop_playback.load(Ordering::SeqCst) {
                 return false;
             }
@@ -255,6 +268,12 @@ mod tests {
             focus_target_window: false,
             until_time,
         }
+    }
+
+    #[test]
+    fn maps_left_and_right_buttons_for_enigo() {
+        assert_eq!(enigo_button(ClickButton::Left), EnigoButton::Left);
+        assert_eq!(enigo_button(ClickButton::Right), EnigoButton::Right);
     }
 
     #[test]

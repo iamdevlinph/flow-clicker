@@ -155,6 +155,15 @@ test('editor renders separate X/Y cells and keeps delay with ms', () => {
   assert.match(html, /<td class="row-actions"><div class="row-action-group">[\s\S]*data-action="move-up"[\s\S]*data-action="move-down"[\s\S]*data-action="duplicate"[\s\S]*data-action="delete"[\s\S]*<\/div><\/td>/);
   assert.match(html, /<td class="row-actions">[\s\S]*data-action="move-up"[^>]* disabled/);
   assert.match(html, /data-action="move-down"[^>]* disabled/);
+  assert.match(html, /class="compact-input action-button"[^>]*aria-label="Button for Click"[\s\S]*<option value="left" selected>Left<\/option>[\s\S]*<option value="right"/);
+  assert.match(editorRowsHtml([{ id: 'r', type: 'click', name: 'Right', button: 'right' }]), /<option value="right" selected>Right<\/option>/);
+});
+
+test('editor sends button updates and the main window accepts only supported values', () => {
+  const editor = readFileSync(new URL('./editor.js', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  assert.match(editor, /field: 'button', value: event\.target\.value/);
+  assert.match(app, /intent\.field === 'button' && \(intent\.value === 'left' \|\| intent\.value === 'right'\)/);
 });
 
 test('editor keeps actions in rows and constrains Name column', () => {
@@ -164,7 +173,7 @@ test('editor keeps actions in rows and constrains Name column', () => {
   assert.match(html, /<th>Actions<\/th>/);
   assert.doesNotMatch(html, /id="moveUpBtn"|id="duplicateBtn"|id="deleteBtn"/);
   assert.match(css, /nth-child\(3\)[^}]*160px/);
-  assert.match(css, /nth-child\(7\)[^}]*width: 1%[^}]*white-space: nowrap/);
+  assert.match(css, /nth-child\(8\)[^}]*width: 1%[^}]*white-space: nowrap/);
   assert.match(css, /html, body \{ min-width: 720px/);
   assert.equal(config.app.windows.find(({ label }) => label === 'editor').minWidth, 720);
 });

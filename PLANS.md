@@ -192,6 +192,11 @@ pending, so the result remains **NOT RUN** and no successor-app work may start.
 - Portable exports contain flows and groups only. Portable import accepts a
   chosen file or pasted JSON, replaces the library after confirmation, and
   preserves device-local settings and editor size.
+- Right-click action evidence (2026-08-28): click actions carry strict
+  `left`/`right` buttons across recording, editing, playback, persistence,
+  copying, and portable transfer; legacy missing buttons default to left.
+  Focused Node and Rust checks pass; rendered and physical input verification
+  remain pending.
 - The main-window runtime state is always visible in a layout-reserving banner
   above the top bar: grey Idle, red Recording, and green Playing. The separate
   editor window is unchanged.

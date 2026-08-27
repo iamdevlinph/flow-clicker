@@ -29,6 +29,12 @@ export function copyAction(action, id = () => crypto.randomUUID()) {
   return copy;
 }
 
+function normalizeActionButton(action) {
+  if (action.type === 'click') action.button = action.button === 'right' ? 'right' : 'left';
+  if (action.type === 'group') (action.actions ?? []).forEach(normalizeActionButton);
+  return action;
+}
+
 export function copyActions(actions, id = () => crypto.randomUUID()) { return (actions ?? []).map((action) => copyAction(action, id)); }
 
 export function groupContiguous(actions, ids, id = () => crypto.randomUUID()) {
@@ -82,7 +88,7 @@ export function migrateState(input) {
   };
   state.flows = (Array.isArray(state.flows) ? state.flows : []).map((flow) => {
     const { playback: _playback, ...rest } = flow;
-    return { ...rest, groupId: flow.groupId ?? null, actions: Array.isArray(flow.actions) ? flow.actions : [] };
+    return { ...rest, groupId: flow.groupId ?? null, actions: (Array.isArray(flow.actions) ? flow.actions : []).map(normalizeActionButton) };
   });
   state.selectedFlowId = state.flows.some((flow) => flow.id === state.selectedFlowId) ? state.selectedFlowId : (state.flows[0]?.id ?? null);
   return state;

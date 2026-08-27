@@ -26,6 +26,7 @@ function render() {
     };
     row.querySelector('.action-name').onchange = (event) => send('action-update', { actionId: id, field: 'name', value: event.target.value });
     row.querySelector('.action-delay')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'delayMs', value: event.target.value }));
+    row.querySelector('.action-button')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'button', value: event.target.value }));
     row.querySelector('.coord-x')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'screenX', value: event.target.value }));
     row.querySelector('.coord-y')?.addEventListener('change', (event) => send('action-update', { actionId: id, field: 'screenY', value: event.target.value }));
     row.querySelectorAll('.row-action').forEach((button) => button.addEventListener('click', () => {

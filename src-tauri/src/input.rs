@@ -1,5 +1,5 @@
 use crate::{
-    models::RecordedClick,
+    models::{ClickButton, RecordedClick},
     platform,
 };
 use enigo::{Enigo, Mouse, Settings};
@@ -183,7 +183,7 @@ fn handle_event(app: &AppHandle, runtime: &RuntimeState, event: Event) {
         EventType::MouseMove { x, y } => {
             *runtime.cursor.lock().unwrap() = (x, y);
         }
-        EventType::ButtonPress(RdevButton::Left) => {
+        EventType::ButtonPress(button @ (RdevButton::Left | RdevButton::Right)) => {
             if !runtime.recording.load(Ordering::SeqCst) || runtime.playing.load(Ordering::SeqCst) {
                 return;
             }
@@ -210,6 +210,11 @@ fn handle_event(app: &AppHandle, runtime: &RuntimeState, event: Event) {
                 _ => (None, None),
             };
             let click = RecordedClick {
+                button: match button {
+                    RdevButton::Right => ClickButton::Right,
+                    RdevButton::Left => ClickButton::Left,
+                    _ => unreachable!(),
+                },
                 screen_x: sx,
                 screen_y: sy,
                 relative_x: rx,

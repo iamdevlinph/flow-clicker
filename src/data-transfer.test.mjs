@@ -35,6 +35,14 @@ test('accepts click actions recorded without optional window coordinates', () =>
   assert.equal(parsePortableData(exportPortableData(source)).flows[0].actions[0].id, 'a');
 });
 
+test('defaults legacy button and preserves right button through portable transfer', () => {
+  const source = state();
+  source.flows[0].actions = [click(), { ...click('b'), button: 'right' }];
+  const imported = parsePortableData(exportPortableData(source));
+  assert.equal(imported.flows[0].actions[0].button, 'left');
+  assert.equal(imported.flows[0].actions[1].button, 'right');
+});
+
 test('round-trips combined-flow provenance', () => {
   const source = state();
   source.flows[0].combinedFrom = [{ id: 'source', name: 'Source flow' }];
@@ -47,6 +55,7 @@ for (const [name, payload] of [
   ['invalid action', JSON.stringify({ version: 3, flows: [{ id: 'f', name: 'F', groupId: null, createdAt: '', updatedAt: '', actions: [{ type: 'wat' }] }], groups: [] })],
   ['out-of-range coordinates', JSON.stringify({ version: 3, flows: [{ id: 'f', name: 'F', groupId: null, createdAt: '', updatedAt: '', actions: [click()] }], groups: [] }).replace('"screenX":10', '"screenX":2147483648')],
   ['unsafe integer delay', JSON.stringify({ version: 3, flows: [{ id: 'f', name: 'F', groupId: null, createdAt: '', updatedAt: '', actions: [{ ...click(), delayMs: 1e100 }] }], groups: [] })],
+  ['unsupported button', JSON.stringify({ version: 3, flows: [{ id: 'f', name: 'F', groupId: null, createdAt: '', updatedAt: '', actions: [{ ...click(), button: 'middle' }] }], groups: [] })],
   ['duplicate IDs', JSON.stringify({ version: 3, flows: [{ id: 'f', name: 'F', groupId: null, createdAt: '', updatedAt: '', actions: [click('f')] }], groups: [] })],
   ['broken group reference', JSON.stringify({ version: 3, flows: [{ id: 'f', name: 'F', groupId: 'missing', createdAt: '', updatedAt: '', actions: [] }], groups: [] })],
 ]) test(`rejects ${name}`, () => assert.throws(() => parsePortableData(payload)));
