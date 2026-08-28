@@ -37,7 +37,7 @@ fn interruptible_sleep(
     if ms == 0 {
         return true;
     }
-    let speed = speed.clamp(0.05, 50.0);
+    let speed = playback_speed(speed);
     let actual = ((ms as f64) / speed).round().max(0.0) as u64;
     let wait_started = Instant::now();
     while wait_started.elapsed().as_millis() < actual as u128 {
@@ -49,6 +49,10 @@ fn interruptible_sleep(
         ));
     }
     true
+}
+
+fn playback_speed(speed: f64) -> f64 {
+    speed.clamp(1.0, 50.0)
 }
 
 fn duration_limit_ms(options: &PlaybackOptions) -> u128 {
@@ -293,6 +297,14 @@ mod tests {
             &options(None),
             Instant::now()
         ));
+    }
+
+    #[test]
+    fn playback_speed_is_clamped_to_one_through_fifty() {
+        assert_eq!(playback_speed(1.0), 1.0);
+        assert_eq!(playback_speed(0.05), 1.0);
+        assert_eq!(playback_speed(2.5), 2.5);
+        assert_eq!(playback_speed(75.0), 50.0);
     }
 
     #[test]

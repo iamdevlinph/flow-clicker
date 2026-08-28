@@ -14,6 +14,7 @@
 				"label": "main",
 				"title": "FlowClicker",
 				"url": "index.html",
+				"backgroundColor": "#0b0e13",
 				"width": 460,
 				"height": 720,
 				"resizable": false,

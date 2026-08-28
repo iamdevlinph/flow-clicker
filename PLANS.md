@@ -87,6 +87,13 @@ Rust formatting, 14 Rust tests, `cargo check`, and whitespace validation pass.
 Rendered comparison remains unavailable because no desktop browser tooling is
 connected; physical input was not exercised.
 
+Startup/speed correction evidence (2026-08-28): the main native window starts
+with the shipped `--bg` color, playback speed controls use a 1–50× range with
+1× steps, and frontend/backend normalization clamps sub-1× values to 1× while
+preserving fractional values at or above 1×. Focused frontend and Rust tests,
+frontend syntax, and whitespace checks pass; rendered cold-launch comparison
+remains unavailable and physical playback was not exercised.
+
 Lifecycle/settings evidence (2026-08-24): empty-library normalization, deletion
 selection rules, and validated hotkey capture normalization are covered by
 focused Node checks; frontend syntax and whitespace checks pass. Rendered and

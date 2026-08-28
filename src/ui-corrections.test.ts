@@ -24,7 +24,12 @@ import type {
 	LibraryGroup,
 } from "./types.js";
 
-type WindowConfig = { label: string; title: string; minWidth?: number };
+type WindowConfig = {
+	label: string;
+	title: string;
+	minWidth?: number;
+	backgroundColor?: string;
+};
 type TauriConfig = {
 	version?: string;
 	identifier: string;
@@ -295,6 +300,64 @@ test("packaged version appears below the main heading and titles only the main w
 	);
 	expectAssert.ok(
 		capability.permissions.includes("core:window:allow-set-title"),
+	);
+});
+
+test("startup background and playback speed use the shipped minimum", () => {
+	const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+	const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
+	const config = JSON.parse(
+		readFileSync(
+			new URL("../src-tauri/tauri.conf.json", import.meta.url),
+			"utf8",
+		),
+	) as TauriConfig;
+	const mainWindow = config.app.windows.find(
+		(window: WindowConfig): boolean => window.label === "main",
+	);
+	expectAssert.match(
+		html,
+		/id="playbackSpeed" type="number" min="1" max="50" step="1"/,
+	);
+	expectAssert.match(styles, /--bg:\s*#0b0e13/);
+	expectAssert.equal(mainWindow?.backgroundColor, "#0b0e13");
+});
+
+test("playback speed normalization clamps only the lower bound", () => {
+	expectAssert.equal(normalizePlayback({ playbackSpeed: 0 }).playbackSpeed, 1);
+	expectAssert.equal(
+		normalizePlayback({ playbackSpeed: 0.5 }).playbackSpeed,
+		1,
+	);
+	expectAssert.equal(
+		normalizePlayback({ playbackSpeed: 2.5 }).playbackSpeed,
+		2.5,
+	);
+	const fields: Record<string, FormField> = Object.fromEntries(
+		[
+			"playbackSpeed",
+			"repeatMode",
+			"repeatValue",
+			"repeatDuration",
+			"settleMs",
+			"holdMs",
+			"untilTime",
+			"restoreCursor",
+			"focusTarget",
+		].map((id: string): [string, FormField] => [
+			id,
+			{ value: "", checked: false },
+		]),
+	);
+	fields.playbackSpeed.value = "0.5";
+	expectAssert.equal(
+		playbackFromForm((id: string): FormField => fields[id]).playbackSpeed,
+		1,
+	);
+	fields.playbackSpeed.value = "2.5";
+	expectAssert.equal(
+		playbackFromForm((id: string): FormField => fields[id]).playbackSpeed,
+		2.5,
 	);
 });
 

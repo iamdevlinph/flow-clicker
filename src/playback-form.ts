@@ -91,8 +91,10 @@ export function normalizePlayback(playback: PlaybackInput = {}): Playback {
 			? repeatMode
 			: "continuous";
 	return {
-		playbackSpeed:
+		playbackSpeed: Math.max(
+			1,
 			Number(value.playbackSpeed) || playbackDefaults.playbackSpeed,
+		),
 		repeatMode:
 			normalizedMode === "continuous" || untilTime
 				? "continuous"
@@ -118,7 +120,7 @@ export const playbackFromForm = (get: FormGetter): Playback => {
 				? mode
 				: "continuous";
 	return {
-		playbackSpeed: Math.max(0.05, Number(get("playbackSpeed").value) || 1),
+		playbackSpeed: Math.max(1, Number(get("playbackSpeed").value) || 1),
 		repeatMode,
 		repeatValue:
 			mode === "cycles"
