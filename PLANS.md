@@ -94,6 +94,17 @@ preserving fractional values at or above 1×. Focused frontend and Rust tests,
 frontend syntax, and whitespace checks pass; rendered cold-launch comparison
 remains unavailable and physical playback was not exercised.
 
+Recording-replacement and playback-effect evidence (2026-08-28): recording
+startup now replaces the selected flow's actions and clears editor selection
+only after the native recorder starts successfully, then persists the empty
+flow. Successful physical click releases emit a nonfatal, primary-monitor-only
+450 ms CSS ripple through the existing click-through overlay, which is hidden
+when playback stops or completes; opening the interactive click map restores
+normal cursor interaction and focus. The playback-settings gear reuses the
+existing accessible 32×32 icon-button pattern. Focused frontend tests, frontend
+build and type checks, Rust formatting, and 16 Rust tests pass. Physical input
+and rendered desktop comparison were not exercised.
+
 Lifecycle/settings evidence (2026-08-24): empty-library normalization, deletion
 selection rules, and validated hotkey capture normalization are covered by
 focused Node checks; frontend syntax and whitespace checks pass. Rendered and

@@ -7,6 +7,13 @@ type OverlayPayload = {
 	originX: number;
 	originY: number;
 };
+type PlaybackClick = {
+	mode: "playback";
+	screenX: number;
+	screenY: number;
+	originX: number;
+	originY: number;
+};
 
 ((): void => {
 	const root: HTMLElement | null = document.getElementById("overlayRoot");
@@ -23,9 +30,15 @@ type OverlayPayload = {
 		originY: 0,
 	};
 	let selectedActionId: string | null = null;
+	let mode: "map" | "playback" = "map";
 
 	function render(): void {
 		overlayRoot.innerHTML = "";
+		if (mode === "playback") {
+			overlayBadge.hidden = true;
+			return;
+		}
+		overlayBadge.hidden = false;
 		overlayBadge.textContent = payload.interactive
 			? "FlowClicker · drag click points"
 			: "FlowClicker · click map";
@@ -77,8 +90,26 @@ type OverlayPayload = {
 	}
 
 	native.event?.listen?.<OverlayPayload>("overlay-points", (event): void => {
+		mode = "map";
 		payload = event.payload;
 		render();
+	});
+	native.event?.listen?.<PlaybackClick>("playback-click", (event): void => {
+		if (mode !== "playback") {
+			mode = "playback";
+			overlayRoot.innerHTML = "";
+		}
+		overlayBadge.hidden = true;
+		const { screenX, screenY, originX, originY } = event.payload;
+		if (![screenX, screenY, originX, originY].every(Number.isFinite)) return;
+		const effect = document.createElement("div");
+		effect.className = "playback-click-effect";
+		effect.style.left = `${screenX - originX}px`;
+		effect.style.top = `${screenY - originY}px`;
+		effect.addEventListener("animationend", () => effect.remove(), {
+			once: true,
+		});
+		overlayRoot.appendChild(effect);
 	});
 	native.event?.listen?.<{ actionId?: string }>(
 		"overlay-selection",

@@ -178,6 +178,7 @@ fn show_overlay(app: AppHandle, actions_json: String, interactive: bool) -> Resu
         .set_size(PhysicalSize::new(size.width, size.height))
         .map_err(|e| e.to_string())?;
     overlay.set_always_on_top(true).map_err(|e| e.to_string())?;
+    overlay.set_focusable(true).map_err(|e| e.to_string())?;
     overlay
         .set_ignore_cursor_events(!interactive)
         .map_err(|e| e.to_string())?;

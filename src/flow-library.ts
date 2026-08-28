@@ -44,7 +44,7 @@ export function flowRowMarkup({
 	running = false,
 	playbackBlocked = false,
 }: FlowMarkupOptions): string {
-	return `<input class="flow-combine" type="checkbox" aria-label="Select ${escapeHtml(flow.name)} for combining"${combineSelected ? " checked" : ""}><button class="flow-play" type="button" title="${running ? "Playing" : "Play flow"}" aria-label="${running ? "Playing" : `Play ${escapeHtml(flow.name)}`}"${running || playbackBlocked ? " disabled" : ""}>${running ? "●" : "▶"}</button><div class="flow-main"><div class="flow-row-name">${escapeHtml(flow.name)}</div></div><div class="flow-row-actions"><button class="flow-settings" title="Playback settings" aria-label="Playback settings">⚙</button></div>`;
+	return `<input class="flow-combine" type="checkbox" aria-label="Select ${escapeHtml(flow.name)} for combining"${combineSelected ? " checked" : ""}><button class="flow-play" type="button" title="${running ? "Playing" : "Play flow"}" aria-label="${running ? "Playing" : `Play ${escapeHtml(flow.name)}`}"${running || playbackBlocked ? " disabled" : ""}>${running ? "●" : "▶"}</button><div class="flow-main"><div class="flow-row-name">${escapeHtml(flow.name)}</div></div><div class="flow-row-actions"><button class="icon-btn flow-settings" type="button" title="Playback settings" aria-label="Playback settings">⚙</button></div>`;
 }
 
 export function groupHeaderMarkup({

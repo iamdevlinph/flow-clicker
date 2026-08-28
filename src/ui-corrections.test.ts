@@ -113,7 +113,7 @@ test("flow cards use four columns and omit metadata", () => {
 	);
 	expectAssert.match(
 		html,
-		/class="flow-settings"[^>]*aria-label="Playback settings"/,
+		/class="icon-btn flow-settings"[^>]*aria-label="Playback settings"/,
 	);
 	expectAssert.doesNotMatch(html, /flow-row-meta|actions ·|clicks ·|delays/);
 });
@@ -186,9 +186,23 @@ test("group action sizing does not alter flow-card settings", () => {
 	);
 	expectAssert.match(
 		styles,
-		/\.flow-settings\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*padding:\s*2px;[^}]*color:\s*var\(--subtle\);/,
+		/\.flow-settings\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*color:\s*var\(--subtle\);/,
 	);
 	expectAssert.doesNotMatch(styles, /\.flow-settings[^}]*width:\s*26px/);
+});
+
+test("playback effects are transient and recording replaces actions after native startup", () => {
+	const overlay = readFileSync(
+		new URL("./overlay.ts", import.meta.url),
+		"utf8",
+	);
+	const overlayStyles = readFileSync(
+		new URL("./overlay.css", import.meta.url),
+		"utf8",
+	);
+	expectAssert.match(overlay, /playback-click-effect/);
+	expectAssert.match(overlay, /mode !== "playback"/);
+	expectAssert.match(overlayStyles, /animation: playback-click-ripple 450ms/);
 });
 
 test("runtime banner reserves space and uses accessible idle, recording, and playing states", () => {

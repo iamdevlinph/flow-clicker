@@ -403,7 +403,6 @@ body.hud-mode .status-banner {
 .flow-settings {
 	border: 0;
 	background: transparent;
-	padding: 2px;
 	color: var(--subtle);
 }
 .flow-settings:hover {

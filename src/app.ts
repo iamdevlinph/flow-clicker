@@ -31,6 +31,10 @@ import {
 	remainingSeconds,
 } from "./playback-status.js";
 import {
+	beginRecordingReplacement,
+	restoreRecordingReplacement,
+} from "./recording-replacement.js";
+import {
 	actionClickCount,
 	migrateState as migratePersistedState,
 	nextDeadline,
@@ -749,6 +753,31 @@ type HotkeyCapture = {
 		try {
 			await hideOverlay();
 			await invoke("start_recording");
+			const flow = currentFlow();
+			if (flow) {
+				const snapshot = beginRecordingReplacement(flow, {
+					selectedActionId,
+					selectedActionIds: [...selectedActionIds],
+				});
+				selectedActionId = null;
+				selectedActionIds = new Set();
+				touchFlow(flow);
+				if (!(await saveState())) {
+					try {
+						await invoke("stop_recording");
+					} catch (_) {}
+					const selection = restoreRecordingReplacement(flow, snapshot);
+					selectedActionId = selection.selectedActionId;
+					selectedActionIds = new Set(selection.selectedActionIds);
+					renderAll();
+					toast(
+						"Could not save recording",
+						"The previous actions were restored.",
+						"error",
+					);
+					return;
+				}
+			}
 			recording = true;
 			await setActivityBadge(invoke, "recording");
 			publishEditorSnapshot();
@@ -1496,6 +1525,7 @@ type HotkeyCapture = {
 			if (!playing) {
 				setPlaybackHud(false);
 				setActivityBadge(invoke, "idle");
+				hideOverlay();
 			}
 			publishEditorSnapshot();
 			renderFlowList();
@@ -1513,6 +1543,7 @@ type HotkeyCapture = {
 			playing = false;
 			setPlaybackHud(false);
 			setActivityBadge(invoke, "idle");
+			hideOverlay();
 			runningFlowId = null;
 			publishEditorSnapshot();
 			renderFlowList();

@@ -9,7 +9,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 fn enigo_button(button: ClickButton) -> EnigoButton {
     match button {
@@ -68,6 +68,63 @@ fn execution_number(completed: u64) -> u64 {
     completed.saturating_add(1)
 }
 
+fn on_primary_monitor(
+    x: i32,
+    y: i32,
+    origin_x: i32,
+    origin_y: i32,
+    width: u32,
+    height: u32,
+) -> bool {
+    x >= origin_x
+        && y >= origin_y
+        && x < origin_x.saturating_add(width as i32)
+        && y < origin_y.saturating_add(height as i32)
+}
+
+fn hide_overlay(app: &AppHandle) {
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = overlay.hide();
+    }
+}
+
+fn show_click_effect(app: &AppHandle, x: i32, y: i32) {
+    let Some(overlay) = app.get_webview_window("overlay") else {
+        return;
+    };
+    let Ok(Some(monitor)) = overlay.primary_monitor() else {
+        return;
+    };
+    let origin = *monitor.position();
+    let size = *monitor.size();
+    if !on_primary_monitor(x, y, origin.x, origin.y, size.width, size.height) {
+        return;
+    }
+    if overlay
+        .set_position(tauri::PhysicalPosition::new(origin.x, origin.y))
+        .and_then(|_| overlay.set_size(tauri::PhysicalSize::new(size.width, size.height)))
+        .and_then(|_| overlay.set_always_on_top(true))
+        .and_then(|_| overlay.set_ignore_cursor_events(true))
+        .and_then(|_| overlay.set_focusable(false))
+        .is_err()
+    {
+        return;
+    }
+    if app
+        .emit_to(
+            "overlay",
+            "playback-click",
+            serde_json::json!({
+                "mode": "playback", "screenX": x, "screenY": y, "originX": origin.x, "originY": origin.y
+            }),
+        )
+        .is_err()
+    {
+        return;
+    }
+    let _ = overlay.show();
+}
+
 pub fn play(
     app: AppHandle,
     runtime: Arc<RuntimeState>,
@@ -93,6 +150,7 @@ pub fn play(
             Ok(v) => v,
             Err(e) => {
                 runtime.playing.store(false, Ordering::SeqCst);
+                hide_overlay(&app);
                 let _ = app.emit(
                     "playback-error",
                     format!("Could not initialize native mouse input: {e}"),
@@ -153,6 +211,7 @@ pub fn play(
         if let Some((x, y)) = original_cursor {
             let _ = enigo.move_mouse(x, y, Coordinate::Abs);
         }
+        hide_overlay(&app);
         runtime.playing.store(false, Ordering::SeqCst);
         runtime.stop_playback.store(false, Ordering::SeqCst);
         let _ = app.emit("playback-state", "stopped");
@@ -237,11 +296,18 @@ fn play_action(
             }
             // Always release after a press, even when cancellation arrives during the hold.
             let _ = interruptible_sleep(options.hold_ms, 1.0, runtime, options, started);
-            let _ = enigo.button(button, Direction::Release);
+            if enigo.button(button, Direction::Release).is_err() {
+                let _ = app.emit(
+                    "playback-error",
+                    format!("Could not release mouse for action {name}"),
+                );
+                return false;
+            }
             if runtime.stop_playback.load(Ordering::SeqCst) {
                 return false;
             }
             *click_count += 1;
+            show_click_effect(app, x, y);
             let _ = app.emit(
                 "playback-progress",
                 serde_json::json!({"clicks": *click_count}),
@@ -311,5 +377,12 @@ mod tests {
     fn execution_starts_at_one_and_advances() {
         assert_eq!(execution_number(0), 1);
         assert_eq!(execution_number(2), 3);
+    }
+
+    #[test]
+    fn click_effect_is_primary_monitor_only() {
+        assert!(on_primary_monitor(100, 100, 0, 0, 1920, 1080));
+        assert!(!on_primary_monitor(1920, 100, 0, 0, 1920, 1080));
+        assert!(!on_primary_monitor(-1, 100, 0, 0, 1920, 1080));
     }
 }
