@@ -1,5 +1,12 @@
 # FlowClicker Product Plan
 
+## Frontend toolchain
+
+The frontend and WebView2 experiment are authored in strict TypeScript. Plain
+`tsc` emits `.js` beside the static assets; Vitest runs the existing Node-only
+tests without DOM emulation. Run `pnpm install --frozen-lockfile`, `pnpm check`,
+`pnpm test`, and `pnpm build` before desktop packaging.
+
 ## Product intent and invariants
 
 FlowClicker is a Tauri desktop application that records and replays physical OS

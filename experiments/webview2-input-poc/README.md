@@ -6,7 +6,7 @@ dispatch, or `.click()` playback.
 
 ## Run (Windows)
 
-Install Rust, the WebView2 Evergreen Runtime, and Tauri's Windows prerequisites,
+Install Node.js 24+, pnpm 10.15.1, Rust, the WebView2 Evergreen Runtime, and Tauri's Windows prerequisites,
 then from this directory run:
 
 ```text

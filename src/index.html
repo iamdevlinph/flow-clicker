@@ -18,7 +18,7 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <nav class="top-tabs" aria-label="Main sections"><button class="top-tab active" id="flowsTab">Flows</button><button class="top-tab" id="settingsTab">Settings</button></nav>
+        <nav class="top-tabs" aria-label="Main sections"><button type="button" class="top-tab active" id="flowsTab">Flows</button><button type="button" class="top-tab" id="settingsTab">Settings</button></nav>
       </div>
     </header>
 
@@ -29,7 +29,7 @@
             <span class="eyebrow">Library</span>
             <h2>Flows</h2>
           </div>
-          <div class="library-menu-wrap"><button class="icon-btn" id="newFlowBtn" title="New flow" aria-label="New flow">＋</button><button class="icon-btn" id="libraryMenuBtn" title="Actions" aria-label="Actions" aria-haspopup="menu" aria-expanded="false">⋯</button><div id="libraryMenu" class="context-menu hidden" role="menu"><button id="newGroupBtn" role="menuitem">New group</button><button id="combineMenuBtn" role="menuitem">Combine Flows</button></div></div>
+          <div class="library-menu-wrap"><button type="button" class="icon-btn" id="newFlowBtn" title="New flow" aria-label="New flow">＋</button><button type="button" class="icon-btn" id="libraryMenuBtn" title="Actions" aria-label="Actions" aria-haspopup="menu" aria-expanded="false">⋯</button><div id="libraryMenu" class="context-menu hidden" role="menu"><button type="button" id="newGroupBtn" role="menuitem">New group</button><button type="button" id="combineMenuBtn" role="menuitem">Combine Flows</button></div></div>
         </div>
 
         <label class="search-box">
@@ -77,7 +77,7 @@
 
   <div class="modal-backdrop hidden" id="flowSettingsModal">
     <div class="modal flow-settings-modal" role="dialog" aria-modal="true" aria-labelledby="flowSettingsHeading">
-      <div class="modal-head"><div><span class="eyebrow">All flows</span><h2 id="flowSettingsHeading">Playback settings</h2></div><button class="icon-btn" id="closeFlowSettingsBtn" aria-label="Close playback settings">×</button></div>
+      <div class="modal-head"><div><span class="eyebrow">All flows</span><h2 id="flowSettingsHeading">Playback settings</h2></div><button type="button" class="icon-btn" id="closeFlowSettingsBtn" aria-label="Close playback settings">×</button></div>
       <div class="setting-card"><label class="field"><span>Playback speed</span><div class="inline-field"><input id="playbackSpeed" type="number" min="0.05" max="50" step="0.05" /><span>×</span></div></label><label class="field"><span>Playback</span><select id="repeatMode"><option value="cycles">Repeat count</option><option value="duration">How long</option><option value="until">Until when</option><option value="continuous">Continuous</option></select></label><div class="repeat-value-row" id="repeatValueRow"><label class="field grow"><span>Number of times</span><input id="repeatValue" type="number" min="1" step="1" /></label></div><div class="repeat-value-row hidden" id="repeatTimerRow"><label class="field grow"><span>Duration (HH:MM:SS)</span><input id="repeatDuration" type="text" inputmode="numeric" value="00:00:01" maxlength="8" aria-label="Duration in hours, minutes, and seconds" /></label></div><label class="field hidden" id="untilTimeField"><span>Until (local time)</span><input id="untilTime" type="time" /></label><p class="microcopy">Repeat count is the total number of complete flow executions. 1 runs the flow once.</p></div>
       <div class="setting-card"><div class="setting-title">Physical mouse timing</div><div class="two-col"><label class="field"><span>Settle</span><div class="inline-field"><input id="settleMs" type="number" min="0" max="5000" /><span>ms</span></div></label><label class="field"><span>Hold</span><div class="inline-field"><input id="holdMs" type="number" min="0" max="5000" /><span>ms</span></div></label></div><label class="toggle"><input id="restoreCursor" type="checkbox" /><span>Restore cursor after playback</span></label><label class="toggle"><input id="focusTarget" type="checkbox" /><span>Focus recorded target window</span></label></div>
     </div>
@@ -87,7 +87,7 @@
     <div class="modal import-modal" role="dialog" aria-modal="true" aria-labelledby="importHeading">
       <div class="modal-head">
         <div><span class="eyebrow">Copy from another flow</span><h2 id="importHeading">Import actions</h2></div>
-        <button class="icon-btn" id="closeImportBtn">×</button>
+        <button type="button" class="icon-btn" id="closeImportBtn">×</button>
       </div>
       <div class="import-grid">
         <label class="field"><span>Source flow</span><select id="importSourceFlow"></select></label>
@@ -96,29 +96,29 @@
       <div class="import-note">Imported actions are independent copies. Editing or deleting them will never modify the source flow.</div>
       <div class="import-actions-head"><label><input type="checkbox" id="importSelectAll" checked /> Select all</label><span id="importCount">0 selected</span></div>
       <div id="importActionList" class="import-action-list"></div>
-      <div class="modal-actions"><button id="cancelImportBtn">Cancel</button><button class="primary" id="confirmImportBtn">Import selected</button></div>
+      <div class="modal-actions"><button type="button" id="cancelImportBtn">Cancel</button><button type="button" class="primary" id="confirmImportBtn">Import selected</button></div>
     </div>
   </div>
 
   <div class="modal-backdrop hidden" id="combineModal">
     <div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="combineHeading">
-      <div class="modal-head"><div><span class="eyebrow">Create a new flow</span><h2 id="combineHeading">Combine Flows</h2></div><button class="icon-btn" id="closeCombineBtn">×</button></div>
+      <div class="modal-head"><div><span class="eyebrow">Create a new flow</span><h2 id="combineHeading">Combine Flows</h2></div><button type="button" class="icon-btn" id="closeCombineBtn">×</button></div>
       <label class="field"><span>New flow name</span><input id="combinedFlowName" /></label>
       <div id="combineSummary" class="combine-summary"></div>
       <div class="import-note">Choose at least two flows. They are copied in selection order with fresh action IDs.</div>
-      <div class="modal-actions"><button id="cancelCombineBtn">Cancel</button><button class="primary" id="confirmCombineBtn">Create combined flow</button></div>
+      <div class="modal-actions"><button type="button" id="cancelCombineBtn">Cancel</button><button type="button" class="primary" id="confirmCombineBtn">Create combined flow</button></div>
     </div>
   </div>
 
-  <div class="modal-backdrop hidden" id="groupModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="groupHeading"><div class="modal-head"><div><span class="eyebrow">Action group</span><h2 id="groupHeading">Edit group</h2></div><button class="icon-btn" id="closeGroupBtn">×</button></div><label class="field"><span>Name</span><input id="groupNameInput" /></label><label class="field"><span>Repeat count</span><input id="groupRepeatInput" type="number" min="1" step="1" /></label><div class="modal-actions"><button id="cancelGroupBtn">Cancel</button><button class="primary" id="saveGroupBtn">Save group</button></div></div></div>
+  <div class="modal-backdrop hidden" id="groupModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="groupHeading"><div class="modal-head"><div><span class="eyebrow">Action group</span><h2 id="groupHeading">Edit group</h2></div><button type="button" class="icon-btn" id="closeGroupBtn">×</button></div><label class="field"><span>Name</span><input id="groupNameInput" /></label><label class="field"><span>Repeat count</span><input id="groupRepeatInput" type="number" min="1" step="1" /></label><div class="modal-actions"><button type="button" id="cancelGroupBtn">Cancel</button><button type="button" class="primary" id="saveGroupBtn">Save group</button></div></div></div>
 
-  <div class="modal-backdrop hidden" id="libraryGroupModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="libraryGroupHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="libraryGroupHeading">New group</h2></div><button class="icon-btn" id="closeLibraryGroupBtn" aria-label="Close group dialog">×</button></div><label class="field"><span>Name</span><input id="libraryGroupNameInput" autocomplete="off" /></label><div class="modal-actions"><button id="cancelLibraryGroupBtn">Cancel</button><button class="primary" id="saveLibraryGroupBtn">Save group</button></div></div></div>
+  <div class="modal-backdrop hidden" id="libraryGroupModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="libraryGroupHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="libraryGroupHeading">New group</h2></div><button type="button" class="icon-btn" id="closeLibraryGroupBtn" aria-label="Close group dialog">×</button></div><label class="field"><span>Name</span><input id="libraryGroupNameInput" autocomplete="off" /></label><div class="modal-actions"><button type="button" id="cancelLibraryGroupBtn">Cancel</button><button type="button" class="primary" id="saveLibraryGroupBtn">Save group</button></div></div></div>
 
-  <div class="modal-backdrop hidden" id="deleteFlowModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="deleteFlowHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="deleteFlowHeading">Delete flow?</h2></div></div><p id="deleteFlowMessage" class="delete-flow-message"></p><div class="modal-actions"><button id="cancelDeleteFlowBtn">Cancel</button><button class="danger-ghost" id="confirmDeleteFlowBtn">Delete flow</button></div></div></div>
+  <div class="modal-backdrop hidden" id="deleteFlowModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="deleteFlowHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="deleteFlowHeading">Delete flow?</h2></div></div><p id="deleteFlowMessage" class="delete-flow-message"></p><div class="modal-actions"><button type="button" id="cancelDeleteFlowBtn">Cancel</button><button type="button" class="danger-ghost" id="confirmDeleteFlowBtn">Delete flow</button></div></div></div>
 
-  <div class="modal-backdrop hidden" id="portableImportModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="portableImportHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="portableImportHeading">Import library</h2></div><button class="icon-btn" id="closePortableImportBtn" aria-label="Close import dialog">×</button></div><p class="microcopy">Choose a .flowclicker.json file or paste its JSON below. Your local settings stay on this device.</p><label class="field"><span>Portable data JSON</span><textarea id="portableImportText" rows="10" spellcheck="false" aria-describedby="portableImportHint"></textarea></label><div id="portableImportHint" class="import-note">Import is checked before anything changes.</div><div class="modal-actions"><button id="choosePortableFileBtn" type="button">Choose file…</button><button id="cancelPortableImportBtn" type="button">Cancel</button><button class="primary" id="stagePortableImportBtn" type="button">Continue</button></div></div></div>
+  <div class="modal-backdrop hidden" id="portableImportModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="portableImportHeading"><div class="modal-head"><div><span class="eyebrow">Flow library</span><h2 id="portableImportHeading">Import library</h2></div><button type="button" class="icon-btn" id="closePortableImportBtn" aria-label="Close import dialog">×</button></div><p class="microcopy">Choose a .flowclicker.json file or paste its JSON below. Your local settings stay on this device.</p><label class="field"><span>Portable data JSON</span><textarea id="portableImportText" rows="10" spellcheck="false" aria-describedby="portableImportHint"></textarea></label><div id="portableImportHint" class="import-note">Import is checked before anything changes.</div><div class="modal-actions"><button id="choosePortableFileBtn" type="button">Choose file…</button><button id="cancelPortableImportBtn" type="button">Cancel</button><button class="primary" id="stagePortableImportBtn" type="button">Continue</button></div></div></div>
 
-  <div class="modal-backdrop hidden" id="portableConfirmModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="portableConfirmHeading"><div class="modal-head"><div><span class="eyebrow">Replace library</span><h2 id="portableConfirmHeading">Import this library?</h2></div><button class="icon-btn" id="closePortableConfirmBtn" aria-label="Close confirmation dialog">×</button></div><p id="portableConfirmMessage" class="delete-flow-message"></p><div class="import-note">This replaces all current flows and groups. Hotkeys, playback settings, and editor size remain unchanged.</div><div class="modal-actions"><button id="cancelPortableConfirmBtn" type="button">Cancel</button><button class="danger-ghost" id="confirmPortableImportBtn" type="button">Replace library</button></div></div></div>
+  <div class="modal-backdrop hidden" id="portableConfirmModal"><div class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="portableConfirmHeading"><div class="modal-head"><div><span class="eyebrow">Replace library</span><h2 id="portableConfirmHeading">Import this library?</h2></div><button type="button" class="icon-btn" id="closePortableConfirmBtn" aria-label="Close confirmation dialog">×</button></div><p id="portableConfirmMessage" class="delete-flow-message"></p><div class="import-note">This replaces all current flows and groups. Hotkeys, playback settings, and editor size remain unchanged.</div><div class="modal-actions"><button id="cancelPortableConfirmBtn" type="button">Cancel</button><button class="danger-ghost" id="confirmPortableImportBtn" type="button">Replace library</button></div></div></div>
 
   <div id="toastStack" class="toast-stack" aria-live="polite"></div>
   <script type="module" src="app.js"></script>

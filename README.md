@@ -5,7 +5,8 @@ FlowClicker has been redesigned as a cross-platform Tauri desktop app that recor
 ## What is included
 
 - One Tauri/Rust project for Windows and macOS development.
-- Framework-free frontend (`HTML + CSS + JavaScript`) — **no Node/npm frontend toolchain is required**.
+- Framework-free frontend (`HTML + CSS + TypeScript`) compiled to browser JavaScript with plain `tsc`.
+- Node.js 24+ and pnpm 10.15.1 are required for strict TypeScript 7 checks, Vitest tests, and builds.
 - Physical mouse playback through the cross-platform Rust `enigo` crate.
 - Global click observation and hotkeys through `rdev`.
 - Windows foreground-window-relative coordinates.
@@ -44,7 +45,7 @@ Prerequisites:
 The build script installs missing Ubuntu packages, Rust stable, the
 `x86_64-pc-windows-msvc` target, and `cargo-xwin` as needed. It downloads the
 Microsoft CRT and Windows SDK files required for the MSVC build under
-Microsoft's license. You do **not** need Node/npm or Visual Studio on Windows
+Microsoft's license. You do **not** need Visual Studio on Windows
 for this repository.
 
 Then run:
@@ -147,10 +148,10 @@ This allows the target window to move between recording and playback in common c
 src/                          static Tauri frontend
   index.html
   styles.css
-  app.js
+  app.ts (emits app.js)
   overlay.html
   overlay.css
-  overlay.js
+  overlay.ts (emits overlay.js)
 
 src-tauri/
   Cargo.toml

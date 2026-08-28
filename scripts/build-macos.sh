@@ -2,6 +2,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+command -v pnpm >/dev/null || { echo "pnpm 10.15.1 is required: https://pnpm.io/installation" >&2; exit 1; }
+pnpm install --frozen-lockfile
+pnpm build
+
 if ! command -v cargo >/dev/null && [[ -f "$HOME/.cargo/env" ]]; then
   # shellcheck source=/dev/null
   source "$HOME/.cargo/env"

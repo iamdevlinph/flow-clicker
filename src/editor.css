@@ -1,22 +1,114 @@
-html, body { min-width: 720px; min-height: 100%; } body { overflow: hidden; }
-.action-table th:nth-child(1), .action-table td:nth-child(1) { width: 32px; }
-.action-table th:nth-child(2), .action-table td:nth-child(2) { width: 72px; }
-.action-table th:nth-child(3), .action-table td:nth-child(3) { width: 160px; max-width: 160px; }
-.action-table th:nth-child(4), .action-table td:nth-child(4), .action-table th:nth-child(5), .action-table td:nth-child(5) { width: 74px; }
-.action-table th:nth-child(6), .action-table td:nth-child(6) { width: 82px; }
-.action-table th:nth-child(7), .action-table td:nth-child(7) { width: 88px; }
-.action-table th:nth-child(8), .action-table td:nth-child(8) { width: 1%; white-space: nowrap; }
-.action-table th:nth-child(9), .action-table td:nth-child(9) { width: 1%; white-space: nowrap; }
-.action-table .compact-input { min-width: 0; width: 100%; }
-.delay-input { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-.delay-input .compact-input { width: 56px; }
-.editor-window { height: 100vh; display: flex; flex-direction: column; padding: 16px; background: var(--panel); }
-.editor-window-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-.editor-window .action-table-wrap { min-height: 0; }
-.editor-window .flow-name { border: 1px solid var(--line); background: #0e131b; border-radius: 8px; padding: 5px 8px; cursor: text; box-shadow: none !important; }
-.editor-window .flow-name:hover { border-color: #3e4a60; background: #141b25; }
-.editor-window .flow-name:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(109,140,255,.1) !important; }
-.target-info { width: 24px; height: 24px; padding: 0; border-radius: 7px; font-size: 13px; color: var(--muted); }
-.row-actions { padding: 4px 7px !important; }
-.row-action-group { display: flex; justify-content: center; gap: 4px; }
-.row-action { width: 24px; height: 24px; padding: 0; border-radius: 7px; font-size: 14px; color: var(--muted); }
+html,
+body {
+	min-width: 720px;
+	min-height: 100%;
+}
+body {
+	overflow: hidden;
+}
+.action-table th:nth-child(1),
+.action-table td:nth-child(1) {
+	width: 32px;
+}
+.action-table th:nth-child(2),
+.action-table td:nth-child(2) {
+	width: 72px;
+}
+.action-table th:nth-child(3),
+.action-table td:nth-child(3) {
+	width: 160px;
+	max-width: 160px;
+}
+.action-table th:nth-child(4),
+.action-table td:nth-child(4),
+.action-table th:nth-child(5),
+.action-table td:nth-child(5) {
+	width: 74px;
+}
+.action-table th:nth-child(6),
+.action-table td:nth-child(6) {
+	width: 82px;
+}
+.action-table th:nth-child(7),
+.action-table td:nth-child(7) {
+	width: 88px;
+}
+.action-table th:nth-child(8),
+.action-table td:nth-child(8) {
+	width: 1%;
+	white-space: nowrap;
+}
+.action-table th:nth-child(9),
+.action-table td:nth-child(9) {
+	width: 1%;
+	white-space: nowrap;
+}
+.action-table .compact-input {
+	min-width: 0;
+	width: 100%;
+}
+.delay-input {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	white-space: nowrap;
+}
+.delay-input .compact-input {
+	width: 56px;
+}
+.editor-window {
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	padding: 16px;
+	background: var(--panel);
+}
+.editor-window-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 14px;
+}
+.editor-window .action-table-wrap {
+	min-height: 0;
+}
+.editor-window .flow-name {
+	border: 1px solid var(--line);
+	background: #0e131b;
+	border-radius: 8px;
+	padding: 5px 8px;
+	cursor: text;
+	box-shadow: none;
+}
+.editor-window .flow-name:hover {
+	border-color: #3e4a60;
+	background: #141b25;
+}
+.editor-window .flow-name:focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px rgba(109, 140, 255, 0.1);
+}
+.target-info {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border-radius: 7px;
+	font-size: 13px;
+	color: var(--muted);
+}
+.editor-window .row-actions {
+	padding: 4px 7px;
+}
+.row-action-group {
+	display: flex;
+	justify-content: center;
+	gap: 4px;
+}
+.row-action {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border-radius: 7px;
+	font-size: 14px;
+	color: var(--muted);
+}

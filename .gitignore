@@ -1,5 +1,9 @@
 /src-tauri/target/
 /src-tauri/gen/schemas/
 /dist/
+node_modules/
+src/**/*.js
+experiments/**/*.js
+*.tsbuildinfo
 .DS_Store
 Thumbs.db

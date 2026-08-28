@@ -3,6 +3,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+command -v pnpm >/dev/null || { echo "pnpm 10.15.1 is required: https://pnpm.io/installation" >&2; exit 1; }
+pnpm install --frozen-lockfile
+pnpm build
+
 if [[ "$(uname -s)" != Linux* || ! -f /etc/os-release ]] ||
   ! grep -q '^ID=ubuntu' /etc/os-release ||
   [[ -z "${WSL_INTEROP:-}" ]] && ! grep -qi microsoft /proc/sys/kernel/osrelease; then

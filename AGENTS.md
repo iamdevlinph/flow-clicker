@@ -4,7 +4,7 @@
 FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mouse rather than DOM events or WebDriver. Background-tab clicking is out of scope for now.
 
 ## Architecture
-- `src/`: framework-free HTML/CSS/JavaScript. No npm/Node build is required.
+- `src/`: framework-free HTML/CSS/TypeScript. `pnpm install --frozen-lockfile && pnpm build` emits browser JavaScript beside the static assets; `pnpm test` runs Vitest in Node.
 - `src-tauri/`: Rust/Tauri backend.
 - `enigo`: cross-platform physical mouse playback.
 - `rdev`: cross-platform global mouse/keyboard observation for click-only recording and hotkeys.
@@ -30,6 +30,7 @@ FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mo
 
 ## Development guidance
 - Read the existing documentation and nearby implementation before editing. Keep changes minimal, architecture-aligned, and limited to the request; preserve unrelated work and dirty state.
+- TypeScript is strict and runtime modules retain `.js` import specifiers so emitted browser assets work without a bundler. Do not add DOM emulation for Node tests.
 - Read and preserve `PLANS.md` during product-facing work and template reconciliation. Record only evidence-backed durable decisions, roadmap/status, and resume-worthy milestones; never invent or backfill speculative history. Update feature status only after implementation and verification.
 - Before user-facing changes, inspect the closest existing UI pattern and reuse its structure, styling, interactions, responsive behavior, and native accessibility semantics. Compare the rendered result when tooling permits and report when it does not.
 - For every new or materially changed feature, keep entrypoints focused on composition, move independently understandable concerns into descriptive feature-local files, run targeted validation, and obtain a `code-reviewer` structural review.
