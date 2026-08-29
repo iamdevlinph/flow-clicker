@@ -3,26 +3,38 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+case "$(uname -s)" in
+  Linux*)
+    if [[ ! -f /etc/os-release ]] || ! grep -q '^ID=ubuntu' /etc/os-release ||
+      { [[ -z "${WSL_INTEROP:-}" ]] && ! grep -qi microsoft /proc/sys/kernel/osrelease; }; then
+      echo "This script supports Linux only through Ubuntu under WSL." >&2
+      exit 1
+    fi
+
+    packages=(build-essential curl clang lld llvm file)
+    missing=()
+    for package in "${packages[@]}"; do
+      dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed' || missing+=("$package")
+    done
+    if ((${#missing[@]})); then
+      sudo apt-get update
+      sudo apt-get install -y "${missing[@]}"
+    fi
+    ;;
+  Darwin)
+    command -v brew >/dev/null || { echo "Homebrew is required: https://brew.sh" >&2; exit 1; }
+    brew list --versions llvm >/dev/null 2>&1 || brew install llvm
+    export PATH="$(brew --prefix llvm)/bin:$PATH"
+    ;;
+  *)
+    echo "Unsupported host: $(uname -s). Use Ubuntu under WSL or macOS." >&2
+    exit 1
+    ;;
+esac
+
 command -v pnpm >/dev/null || { echo "pnpm 10.15.1 is required: https://pnpm.io/installation" >&2; exit 1; }
 pnpm install --frozen-lockfile
 pnpm build
-
-if [[ "$(uname -s)" != Linux* || ! -f /etc/os-release ]] ||
-  ! grep -q '^ID=ubuntu' /etc/os-release ||
-  [[ -z "${WSL_INTEROP:-}" ]] && ! grep -qi microsoft /proc/sys/kernel/osrelease; then
-  echo "This script requires Ubuntu under WSL." >&2
-  exit 1
-fi
-
-packages=(build-essential curl clang lld llvm file)
-missing=()
-for package in "${packages[@]}"; do
-  dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed' || missing+=("$package")
-done
-if ((${#missing[@]})); then
-  sudo apt-get update
-  sudo apt-get install -y "${missing[@]}"
-fi
 
 if ! command -v rustup >/dev/null 2>&1; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

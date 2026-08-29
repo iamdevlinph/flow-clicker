@@ -35,18 +35,20 @@ FlowClicker has been redesigned as a cross-platform Tauri desktop app that recor
 - Passive click-map overlay and interactive draggable-point overlay.
 - Local JSON persistence only.
 
-## Build the full Tauri app on Windows from WSL
+## Build the Windows executable from WSL or macOS
 
 Prerequisites:
 
-1. Ubuntu running under WSL with `sudo` and network access.
-2. Microsoft Edge WebView2 Runtime (normally already installed on current Windows 10/11).
+1. Either Ubuntu running under WSL with `sudo`, or macOS with
+   [Homebrew](https://brew.sh/) installed.
+2. Network access for toolchain and dependency downloads.
+3. Microsoft Edge WebView2 Runtime on the destination Windows system (normally
+   already installed on current Windows 10/11).
 
-The build script installs missing Ubuntu packages, Rust stable, the
-`x86_64-pc-windows-msvc` target, and `cargo-xwin` as needed. It downloads the
-Microsoft CRT and Windows SDK files required for the MSVC build under
-Microsoft's license. You do **not** need Visual Studio on Windows
-for this repository.
+The build script installs missing Ubuntu packages under WSL or Homebrew LLVM on
+macOS, plus Rust stable, the `x86_64-pc-windows-msvc` target, and `cargo-xwin` as
+needed. It downloads the Microsoft CRT and Windows SDK files required for the
+MSVC build under Microsoft's license. You do **not** need Visual Studio.
 
 Then run:
 
