@@ -383,6 +383,67 @@ test("startup background and playback speed use the shipped minimum", () => {
 	expectAssert.equal(mainWindow?.backgroundColor, "#0b0e13");
 });
 
+test("free-text fields disable native writing suggestions only", () => {
+	const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+	const editor = readFileSync(new URL("./editor.ts", import.meta.url), "utf8");
+	const suggestionAttributes = [
+		'autocomplete="off"',
+		'autocorrect="off"',
+		'autocapitalize="off"',
+		'spellcheck="false"',
+	];
+	const tag = (source: string, id: string): string =>
+		source.match(new RegExp(`<(?:input|textarea)[^>]*id="${id}"[^>]*>`))?.[0] ??
+		"";
+
+	for (const id of [
+		"flowSearch",
+		"repeatDuration",
+		"combinedFlowName",
+		"groupNameInput",
+		"libraryGroupNameInput",
+		"portableImportText",
+	]) {
+		expect(tag(html, id)).not.toBe("");
+		for (const attribute of suggestionAttributes)
+			expect(tag(html, id)).toContain(attribute);
+	}
+	for (const attribute of suggestionAttributes)
+		expect(tag(editor, "editorHeading")).toContain(attribute);
+
+	const actionName = editorRowsHtml([
+		{
+			id: "click-1",
+			type: "click",
+			name: "Click",
+			delayMs: 0,
+			screenX: 1,
+			screenY: 2,
+			button: "left",
+			windowTitle: "",
+		},
+	]);
+	for (const attribute of suggestionAttributes)
+		expect(
+			actionName.match(/<input class="compact-input action-name"[^>]*>/)?.[0],
+		).toContain(attribute);
+
+	for (const id of [
+		"playbackSpeed",
+		"repeatValue",
+		"untilTime",
+		"groupRepeatInput",
+	])
+		for (const attribute of suggestionAttributes)
+			expect(tag(html, id)).not.toContain(attribute);
+	expect(html.match(/<select id="repeatMode"[^>]*>/)?.[0]).not.toContain(
+		"autocomplete",
+	);
+	expect(html.match(/<input id="restoreCursor"[^>]*>/)?.[0]).not.toContain(
+		"autocomplete",
+	);
+});
+
 test("playback speed normalization clamps only the lower bound", () => {
 	expectAssert.equal(normalizePlayback({ playbackSpeed: 0 }).playbackSpeed, 1);
 	expectAssert.equal(

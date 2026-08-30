@@ -8,7 +8,7 @@ let selected = new Set<string>();
 let editingNameActionId: string | null = null;
 
 export function mountEditorView(root: HTMLElement): void {
-	root.innerHTML = `<header class="editor-window-head"><div class="editor-title"><span class="eyebrow">Editor</span><input id="editorHeading" class="flow-name" value="Untitled flow" aria-label="Flow name"><div id="flowMeta" class="flow-meta"></div></div></header>
+	root.innerHTML = `<header class="editor-window-head"><div class="editor-title"><span class="eyebrow">Editor</span><input id="editorHeading" class="flow-name" value="Untitled flow" aria-label="Flow name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><div id="flowMeta" class="flow-meta"></div></div></header>
 		<div class="transport"><div class="transport-row"><button type="button" id="recordBtn" class="record">● Record</button><button type="button" id="stopRecordBtn" disabled>Stop record</button></div><div class="transport-row"><button type="button" id="runBtn" class="play">▶ Run flow</button><button type="button" id="stopRunBtn" disabled>■ Stop</button></div><button type="button" id="showMapBtn" class="transport-map" aria-pressed="false">Show click map</button></div>
 		<div class="editor-toolbar"><div class="toolbar-group"><button type="button" id="addClickBtn">＋ Click</button><button type="button" id="addDelayBtn">＋ Delay</button><button type="button" id="importBtn" class="accent-outline">⇣ Import actions</button></div></div>
 		<div class="action-table-wrap"><div id="actionRows" class="action-card-list"></div><div id="actionsEmpty" class="empty-state"><div class="empty-icon">＋</div><h3>No actions yet</h3><p>Record clicks, add an action manually, or import actions from another flow.</p></div></div>`;
