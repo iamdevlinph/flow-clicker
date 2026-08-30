@@ -6,7 +6,12 @@ import { beginNameFocus, restoreNameFocus } from "./editor-name-focus.js";
 import { editorRowsHtml } from "./editor-table.js";
 import { flowRowMarkup, groupHeaderMarkup } from "./flow-library.js";
 import { moveFlow, moveFlowByKey } from "./flow-ordering.js";
-import { toggleLibraryGroup, updateLibraryGroups } from "./library-group.js";
+import {
+	moveLibraryGroup,
+	moveLibraryGroupByKey,
+	toggleLibraryGroup,
+	updateLibraryGroups,
+} from "./library-group.js";
 import { dismissOverlayOnEscape, markerClass } from "./overlay-interactions.js";
 import {
 	normalizePlayback,
@@ -176,6 +181,48 @@ test("group disclosure exposes saved state and collapse toggling is immutable", 
 	const toggled = toggleLibraryGroup([group], "g");
 	expectAssert.equal(toggled[0].collapsed, false);
 	expectAssert.equal(group.collapsed, true);
+});
+
+test("group ordering is immutable and preserves group records", () => {
+	const groups: LibraryGroup[] = [
+		{ id: "a", name: "A", collapsed: true },
+		{ id: "b", name: "B", collapsed: false },
+		{ id: "c", name: "C", collapsed: true },
+	];
+	const moved = moveLibraryGroup(groups, "c", "a");
+	expectAssert.deepEqual(
+		moved.map(({ id }) => id),
+		["c", "a", "b"],
+	);
+	expectAssert.deepEqual(
+		groups.map(({ id }) => id),
+		["a", "b", "c"],
+	);
+	expectAssert.deepEqual(moved, [groups[2], groups[0], groups[1]]);
+	expectAssert.deepEqual(
+		moveLibraryGroupByKey(groups, "b", 1).map(({ id }) => id),
+		["a", "c", "b"],
+	);
+	expectAssert.deepEqual(
+		moveLibraryGroup(groups, "a", "c").map(({ id }) => id),
+		["b", "c", "a"],
+	);
+	expectAssert.deepEqual(moveLibraryGroupByKey(groups, "a", -1), groups);
+	expectAssert.deepEqual(moveLibraryGroupByKey(groups, "c", 1), groups);
+	expectAssert.deepEqual(moveLibraryGroup(groups, "missing", "a"), groups);
+	expectAssert.deepEqual(moveLibraryGroup(groups, "a", "missing"), groups);
+	expectAssert.deepEqual(moveLibraryGroup(groups, "a", "a"), groups);
+});
+
+test("group headers expose native drag and keyboard ordering hooks", () => {
+	const library = readFileSync(
+		new URL("./flow-library.ts", import.meta.url),
+		"utf8",
+	);
+	expectAssert.match(library, /head\.draggable = true/);
+	expectAssert.match(library, /draggedGroupId/);
+	expectAssert.match(library, /event\.altKey.*ArrowUp/);
+	expectAssert.match(library, /onMoveGroupBefore/);
 });
 
 test("group action sizing does not alter flow-card settings", () => {

@@ -14,7 +14,12 @@ import { renderFlowLibrary } from "./flow-library.js";
 import { normalizeFlowSelection, removeFlow } from "./flow-lifecycle.js";
 import { moveFlow, moveFlowByKey } from "./flow-ordering.js";
 import { hotkeysOverlap, normalizeHotkeyEvent } from "./hotkey.js";
-import { toggleLibraryGroup, updateLibraryGroups } from "./library-group.js";
+import {
+	moveLibraryGroup,
+	moveLibraryGroupByKey,
+	toggleLibraryGroup,
+	updateLibraryGroups,
+} from "./library-group.js";
 import {
 	normalizePlayback,
 	playbackDefaults,
@@ -549,6 +554,15 @@ type HotkeyCapture = {
 			onDeleteGroup: deleteLibraryGroup,
 			onMoveBefore: moveFlowBefore,
 			onMoveToGroup: moveFlowToGroup,
+			onMoveGroupBefore: moveLibraryGroupBefore,
+			moveGroupByKey: (group: LibraryGroup, delta: number): boolean => {
+				const moved = moveLibraryGroupByKey(state.groups, group.id, delta);
+				if (moved === state.groups) return false;
+				state.groups = moved;
+				scheduleSave();
+				renderFlowList();
+				return true;
+			},
 			moveByKey: (flow: Flow, delta: number): boolean => {
 				const moved = moveFlowByKey(state.flows, flow.id, delta);
 				if (moved === state.flows) return false;
@@ -559,7 +573,16 @@ type HotkeyCapture = {
 			},
 			announce: (flow: Flow, direction: string): void =>
 				toast("Flow reordered", `${flow.name} moved ${direction}.`),
+			announceGroup: (group: LibraryGroup, direction: string): void =>
+				toast("Group reordered", `${group.name} moved ${direction}.`),
 		});
+	}
+	function moveLibraryGroupBefore(groupId: string, targetId: string): void {
+		const moved = moveLibraryGroup(state.groups, groupId, targetId);
+		if (moved === state.groups) return;
+		state.groups = moved;
+		scheduleSave();
+		renderFlowList();
 	}
 
 	function renameLibraryGroup(id: string): void {

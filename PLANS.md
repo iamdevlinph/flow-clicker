@@ -125,6 +125,14 @@ are covered by focused Node checks; active search visually expands collapsed
 groups without changing saved state. Rendered desktop comparison remains
 pending.
 
+Group-ordering evidence (2026-08-30): named groups can be reordered by dragging
+their headers or pressing Alt+Up/Down on the focused disclosure. Reordering
+preserves group records and uses the existing autosave path; Ungrouped remains
+fixed above named groups. Flow cards use reduced padding and spacing for a more
+compact library. Focused frontend tests, type checks, build, and whitespace
+validation pass. Rendered desktop, persistence-after-reload, and physical drag
+verification remain pending because desktop tooling is unavailable.
+
 Runtime-status evidence (2026-08-25): the main window reserves a full-width
 status banner above the top bar. It announces Idle, Recording, and Playing
 states accessibly and uses the existing grey, red, and green tokens. Focused

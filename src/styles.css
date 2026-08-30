@@ -390,7 +390,7 @@ body.hud-mode .status-banner {
 }
 .group-flow-list {
 	display: grid;
-	gap: 6px;
+	gap: 4px;
 }
 .ungrouped-drop-area:empty {
 	min-height: 8px;
@@ -413,12 +413,12 @@ body.hud-mode .status-banner {
 .flow-row {
 	display: grid;
 	grid-template-columns: 20px 24px minmax(0, 1fr) auto;
-	gap: 8px;
+	gap: 6px;
 	align-items: center;
 	border: 1px solid var(--line);
 	background: #141a24;
 	border-radius: 10px;
-	padding: 9px;
+	padding: 5px;
 	cursor: pointer;
 }
 .flow-row:hover {

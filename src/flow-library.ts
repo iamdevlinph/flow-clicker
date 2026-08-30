@@ -31,11 +31,15 @@ type FlowLibraryOptions = {
 	onDeleteGroup: (groupId: string) => void;
 	onMoveBefore: (flowId: string | null, targetId: string) => void;
 	onMoveToGroup: (flowId: string | null, groupId: string | null) => void;
+	onMoveGroupBefore: (groupId: string, targetId: string) => void;
+	moveGroupByKey: (group: LibraryGroup, delta: number) => boolean;
 	onCreateFlow: () => void;
 	announce: (flow: Flow, direction: string) => void;
+	announceGroup: (group: LibraryGroup, direction: string) => void;
 };
 
 let draggedFlowId: string | null = null;
+let draggedGroupId: string | null = null;
 
 export function flowRowMarkup({
 	flow,
@@ -84,8 +88,11 @@ export function renderFlowLibrary(options: FlowLibraryOptions): void {
 		onDeleteGroup,
 		onMoveBefore,
 		onMoveToGroup,
+		onMoveGroupBefore,
+		moveGroupByKey,
 		onCreateFlow,
 		announce,
+		announceGroup,
 	} = options;
 	list.innerHTML = "";
 	if (!flows.length) {
@@ -169,6 +176,7 @@ export function renderFlowLibrary(options: FlowLibraryOptions): void {
 				});
 				row.addEventListener("dragstart", (event: DragEvent) => {
 					draggedFlowId = flow.id;
+					draggedGroupId = null;
 					if (event.dataTransfer) {
 						event.dataTransfer.effectAllowed = "move";
 						event.dataTransfer.setData("text/plain", flow.id);
@@ -186,10 +194,11 @@ export function renderFlowLibrary(options: FlowLibraryOptions): void {
 				row.addEventListener("drop", (event: DragEvent) => {
 					event.preventDefault();
 					event.stopPropagation();
-					onMoveBefore(
-						event.dataTransfer?.getData("text/plain") || draggedFlowId,
-						flow.id,
-					);
+					if (!draggedGroupId)
+						onMoveBefore(
+							event.dataTransfer?.getData("text/plain") || draggedFlowId,
+							flow.id,
+						);
 					clearDragTargets();
 				});
 				container.appendChild(row);
@@ -214,10 +223,11 @@ export function renderFlowLibrary(options: FlowLibraryOptions): void {
 	ungrouped.addEventListener("drop", (event: DragEvent) => {
 		event.preventDefault();
 		event.stopPropagation();
-		onMoveToGroup(
-			event.dataTransfer?.getData("text/plain") || draggedFlowId,
-			null,
-		);
+		if (!draggedGroupId)
+			onMoveToGroup(
+				event.dataTransfer?.getData("text/plain") || draggedFlowId,
+				null,
+			);
 		clearDragTargets();
 	});
 	list.appendChild(ungrouped);
@@ -231,9 +241,24 @@ export function renderFlowLibrary(options: FlowLibraryOptions): void {
 		const head = section.querySelector<HTMLElement>(".library-group-head");
 		const groupList = section.querySelector<HTMLElement>(".group-flow-list");
 		if (!head || !groupList) return;
+		head.draggable = true;
 		head
 			.querySelector(".group-disclosure")
 			?.addEventListener("click", () => onToggleGroup(group.id));
+		head
+			.querySelector<HTMLButtonElement>(".group-disclosure")
+			?.addEventListener("keydown", (event: KeyboardEvent) => {
+				if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key))
+					return;
+				event.preventDefault();
+				if (!moveGroupByKey(group, event.key === "ArrowUp" ? -1 : 1)) return;
+				document
+					.querySelector<HTMLElement>(
+						`[data-group-id="${CSS.escape(group.id)}"] .group-disclosure`,
+					)
+					?.focus();
+				announceGroup(group, event.key === "ArrowUp" ? "up" : "down");
+			});
 		section
 			.querySelector(".group-rename")
 			?.addEventListener("click", () => onRenameGroup(group.id));
@@ -251,12 +276,23 @@ export function renderFlowLibrary(options: FlowLibraryOptions): void {
 		head.addEventListener("drop", (event: DragEvent) => {
 			event.preventDefault();
 			event.stopPropagation();
-			onMoveToGroup(
-				event.dataTransfer?.getData("text/plain") || draggedFlowId,
-				group.id,
-			);
+			if (draggedGroupId) onMoveGroupBefore(draggedGroupId, group.id);
+			else
+				onMoveToGroup(
+					event.dataTransfer?.getData("text/plain") || draggedFlowId,
+					group.id,
+				);
 			clearDragTargets();
 		});
+		head.addEventListener("dragstart", (event: DragEvent) => {
+			draggedGroupId = group.id;
+			draggedFlowId = null;
+			if (event.dataTransfer) {
+				event.dataTransfer.effectAllowed = "move";
+				event.dataTransfer.setData("text/plain", group.id);
+			}
+		});
+		head.addEventListener("dragend", clearDragTargets);
 		renderRows(groupList, group.id);
 		list.appendChild(section);
 	});
@@ -264,6 +300,7 @@ export function renderFlowLibrary(options: FlowLibraryOptions): void {
 
 function clearDragTargets(): void {
 	draggedFlowId = null;
+	draggedGroupId = null;
 	document
 		.querySelectorAll<HTMLElement>(".drop-target")
 		.forEach((element: HTMLElement) => {
