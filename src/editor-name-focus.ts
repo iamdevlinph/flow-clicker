@@ -15,7 +15,7 @@ export function beginNameFocus(
 
 export function restoreNameFocus(root: InputRoot, actionId: string): void {
 	const input = root.querySelector(
-		`tr[data-id="${CSS.escape(actionId)}"] .action-name`,
+		`.action-card[data-id="${CSS.escape(actionId)}"] .action-name`,
 	);
 	if (input) {
 		input.focus();

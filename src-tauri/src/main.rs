@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod activity_badge;
-mod editor_window;
 mod hud;
 mod input;
 mod models;
@@ -233,25 +232,6 @@ fn hide_overlay(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn show_editor(
-    app: AppHandle,
-    editor_size: Option<editor_window::EditorSize>,
-) -> Result<(), String> {
-    let editor = app
-        .get_window("editor")
-        .ok_or("Editor window is unavailable")?;
-    editor_window::show(&editor, editor_size)
-}
-
-#[tauri::command]
-fn hide_editor(app: AppHandle) -> Result<Option<editor_window::EditorSize>, String> {
-    let editor = app
-        .get_window("editor")
-        .ok_or("Editor window is unavailable")?;
-    editor_window::hide(&editor)
-}
-
-#[tauri::command]
 fn overlay_marker_moved(
     app: AppHandle,
     action_id: String,
@@ -279,19 +259,9 @@ fn main() {
             let runtime = runtime.clone();
             move |window, event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
-                    if matches!(window.label(), "overlay" | "editor") {
+                    if window.label() == "overlay" {
                         api.prevent_close();
-                        if window.label() == "editor" {
-                            if let Ok(size) = editor_window::hide(window) {
-                                let _ = window.app_handle().emit_to(
-                                    "main",
-                                    "editor-window-closed",
-                                    size,
-                                );
-                            }
-                        } else {
-                            let _ = window.hide();
-                        }
+                        let _ = window.hide();
                         return;
                     }
                     api.prevent_close();
@@ -331,8 +301,6 @@ fn main() {
             set_activity_badge,
             show_overlay,
             hide_overlay,
-            show_editor,
-            hide_editor,
             overlay_marker_moved,
             export_portable_data,
             pick_portable_data,

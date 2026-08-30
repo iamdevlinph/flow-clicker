@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { selectedFlows, toggleSelection } from "./combine-selection.js";
-import { closeEditorWindow, handleEditorWindowClosed } from "./editor-close.js";
 import { beginNameFocus, restoreNameFocus } from "./editor-name-focus.js";
 import { editorRowsHtml } from "./editor-table.js";
 import { flowRowMarkup, groupHeaderMarkup } from "./flow-library.js";
@@ -24,7 +23,6 @@ import type {
 	Action,
 	ClickAction,
 	DelayAction,
-	EditorSize,
 	Flow,
 	LibraryGroup,
 } from "./types.js";
@@ -33,6 +31,7 @@ type WindowConfig = {
 	label: string;
 	title: string;
 	minWidth?: number;
+	width?: number;
 	backgroundColor?: string;
 };
 type TauriConfig = {
@@ -357,7 +356,7 @@ test("packaged version appears below the main heading and titles only the main w
 	expectAssert.equal(config.identifier, "com.flowclicker.desktop");
 	expectAssert.deepEqual(
 		config.app.windows.map((window: WindowConfig): string => window.title),
-		["FlowClicker", "FlowClicker Editor", "FlowClicker Overlay"],
+		["FlowClicker", "FlowClicker Overlay"],
 	);
 	expectAssert.ok(
 		capability.permissions.includes("core:window:allow-set-title"),
@@ -447,7 +446,7 @@ test("data transfer reuses accessible settings and destructive dialog patterns",
 	);
 	expectAssert.match(
 		app,
-		/const replacement = replaceWithPortableData[\s\S]*if \(!\(await saveState\(false, replacement\)\)\) \{[\s\S]*if \(editorWasOpen\)[\s\S]*if \(overlayWasVisible\)[\s\S]*return;[\s\S]*state = replacement/,
+		/const replacement = replaceWithPortableData[\s\S]*if \(!\(await saveState\(false, replacement\)\)\) \{[\s\S]*if \(overlayWasVisible && editorOpen\)[\s\S]*return;[\s\S]*state = replacement[\s\S]*flowsTab[\s\S]*settingsTab[\s\S]*setView\("compact"\)/,
 	);
 });
 
@@ -559,7 +558,7 @@ test("timer conversion clamps invalid sub-minute values and zero duration", () =
 	);
 });
 
-test("editor renders separate X/Y cells and keeps delay with ms", () => {
+test("editor renders compact click, delay, and group cards", () => {
 	const click: ClickAction = {
 		id: "a",
 		type: "click",
@@ -575,27 +574,37 @@ test("editor renders separate X/Y cells and keeps delay with ms", () => {
 		name: "Delay",
 		delayMs: 3,
 	};
-	const html = editorRowsHtml([click, delay]);
+	const html = editorRowsHtml([
+		click,
+		delay,
+		{ id: "g", type: "group", name: "Group", repeatCount: 2, actions: [] },
+	]);
+	expectAssert.match(
+		html,
+		/<article class="action-card action-click" data-id="a">/,
+	);
 	expectAssert.match(html, /coord-x[^>]*value="12"/);
+	expectAssert.match(html, /coord-y[^>]*value="34"/);
+	expectAssert.match(html, /action-delay[^>]*value="56"[\s\S]*class="unit">ms/);
 	expectAssert.match(
 		html,
-		/<\/td><td><input class="compact-input coord-y"[^>]*value="34"/,
-	);
-	expectAssert.match(html, /class="delay-input"[\s\S]*>ms<\/span>/);
-	expectAssert.match(
-		html,
-		/class="icon-btn target-info"[\s\S]*title="A &lt;target&gt;"[\s\S]*aria-label="Target: A &lt;target&gt;"/,
-	);
-	expectAssert.doesNotMatch(html, />A &lt;target&gt;</);
-	expectAssert.match(html, /<td class="target-cell">—<\/td>/);
-	expectAssert.match(
-		html,
-		/<td class="row-actions"><div class="row-action-group">[\s\S]*data-action="move-up"[\s\S]*data-action="move-down"[\s\S]*data-action="duplicate"[\s\S]*data-action="delete"[\s\S]*<\/div><\/td>/,
+		/<summary class="action-card-summary"[^>]*aria-label="Details for Click"[^>]*><span class="action-card-summary-content"><span class="action-number">1<\/span><span class="action-type click">click<\/span><label class="action-name-field"><input class="compact-input action-name"/,
 	);
 	expectAssert.match(
 		html,
-		/<td class="row-actions">[\s\S]*data-action="move-up"[^>]* disabled/,
+		/<details class="action-card-accordion">[\s\S]*<div class="action-card-body">[\s\S]*class="target-cell" title="A &lt;target&gt;">Target: A &lt;target&gt;/,
 	);
+	expectAssert.match(
+		html,
+		/summary class="action-card-summary" aria-label="Details for Click"/,
+	);
+	expectAssert.match(html, /data-id="d"[\s\S]*action-delay[^>]*value="3"/);
+	expectAssert.match(html, /data-id="g"[\s\S]*<span>Group<\/span>/);
+	expectAssert.match(
+		html,
+		/<div class="action-card-body">[\s\S]*class="action-card-foot">[\s\S]*data-action="move-up"[\s\S]*data-action="move-down"[\s\S]*data-action="duplicate"[\s\S]*data-action="delete"/,
+	);
+	expectAssert.match(html, /data-action="move-up"[^>]* disabled/);
 	expectAssert.match(html, /data-action="move-down"[^>]* disabled/);
 	expectAssert.match(
 		html,
@@ -622,7 +631,7 @@ test("editor sends button updates and the main window accepts only supported val
 	const app = readFileSync(new URL("./app.ts", import.meta.url), "utf8");
 	expectAssert.match(
 		editor,
-		/bindChange<HTMLSelectElement>\(row, "\.action-button", "button", id\)/,
+		/\["\.action-button", "button"\][\s\S]*intent\?\.\("action-update", \{ actionId: id, field, value: target\.value \}\)/,
 	);
 	expectAssert.match(
 		app,
@@ -630,8 +639,9 @@ test("editor sends button updates and the main window accepts only supported val
 	);
 });
 
-test("editor keeps actions in rows and constrains Name column", () => {
-	const html = readFileSync(new URL("./editor.html", import.meta.url), "utf8");
+test("editor is an in-window vertically scrolling card view", () => {
+	const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+	const editor = readFileSync(new URL("./editor.ts", import.meta.url), "utf8");
 	const css = readFileSync(new URL("./editor.css", import.meta.url), "utf8");
 	const config = JSON.parse(
 		readFileSync(
@@ -639,23 +649,77 @@ test("editor keeps actions in rows and constrains Name column", () => {
 			"utf8",
 		),
 	) as TauriConfig;
-	expectAssert.match(html, /<th>Actions<\/th>/);
-	expectAssert.doesNotMatch(
+	expectAssert.match(
 		html,
-		/id="moveUpBtn"|id="duplicateBtn"|id="deleteBtn"/,
+		/id="editorPanel" aria-labelledby="editorHeading"><\/section>/,
 	);
-	expectAssert.match(css, /nth-child\(3\)[^}]*160px/);
+	expectAssert.match(
+		editor,
+		/function mountEditorView[\s\S]*id="editorHeading"[\s\S]*id="actionRows" class="action-card-list"/,
+	);
+	expectAssert.match(
+		editor,
+		/name\?\.addEventListener\("click", \(event\) => event\.stopPropagation\(\)\)/,
+	);
+	expectAssert.match(
+		editor,
+		/name\?\.addEventListener\("keydown", \(event\) => event\.stopPropagation\(\)\)/,
+	);
+	expectAssert.match(
+		editor,
+		/closest\([\s\S]*input,button,select,textarea,summary/,
+	);
+	expectAssert.match(
+		editor,
+		/\.action-card-accordion\[open\][\s\S]*rows\.innerHTML = editorRowsHtml[\s\S]*accordion\.open = true/,
+	);
+	expectAssert.doesNotMatch(editor, /backToFlowsBtn|transport-divider/);
+	expectAssert.doesNotMatch(css, /back-flow-btn|transport-divider/);
+	expectAssert.match(
+		editor,
+		/transport-row[\s\S]*recordBtn[\s\S]*stopRecordBtn[\s\S]*transport-row[\s\S]*runBtn[\s\S]*stopRunBtn[\s\S]*transport-map/,
+	);
 	expectAssert.match(
 		css,
-		/nth-child\(8\)[^}]*width: 1%[^}]*white-space: nowrap/,
+		/\.action-table-wrap\s*\{[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*hidden;[^}]*scrollbar-width:\s*none/,
 	);
-	expectAssert.match(css, /html,\s*body\s*\{[^}]*min-width:\s*720px/);
+	expectAssert.match(
+		css,
+		/\.action-table-wrap::-webkit-scrollbar\s*\{[^}]*display:\s*none/,
+	);
+	expectAssert.match(
+		css,
+		/\.editor-panel \.transport\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
+	);
+	expectAssert.match(
+		css,
+		/\.action-card-details\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(4/,
+	);
+	expectAssert.match(
+		css,
+		/\.action-card-summary-content\s*\{[^}]*grid-template-columns:\s*24px max-content minmax\(0, 1fr\) auto/,
+	);
+	expectAssert.match(
+		css,
+		/\.action-card-summary-content::after\s*\{[^}]*content:\s*"▸"[\s\S]*\.action-card-accordion\[open\] \.action-card-summary-content::after\s*\{[^}]*content:\s*"▾"/,
+	);
+	expectAssert.match(
+		css,
+		/\.inline-unit\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/,
+	);
+	expectAssert.match(
+		css,
+		/\.row-action-group\s*\{[^}]*grid-template-columns:\s*repeat\(4/,
+	);
+	expectAssert.match(
+		css,
+		/\.target-cell\s*\{[^}]*max-width:\s*none;[^}]*white-space:\s*normal/,
+	);
 	expectAssert.equal(
-		config.app.windows.find(
-			(window: WindowConfig): boolean => window.label === "editor",
-		)?.minWidth,
-		720,
+		config.app.windows.some((window) => window.label === "editor"),
+		false,
 	);
+	expectAssert.equal(config.app.windows[0].width, 460);
 });
 
 test("editor highlights only selected clicks for the click map", () => {
@@ -673,33 +737,30 @@ test("editor highlights only selected clicks for the click map", () => {
 		],
 		["click", "delay"],
 	);
-	expectAssert.match(html, /data-id="click" class="action-selected"/);
-	expectAssert.doesNotMatch(html, /data-id="delay" class="action-selected"/);
+	expectAssert.match(
+		html,
+		/class="action-card action-click action-selected" data-id="click"/,
+	);
+	expectAssert.doesNotMatch(
+		html,
+		/class="action-card action-delay action-selected" data-id="delay"/,
+	);
 });
 
-test("both editor close paths hide the overlay before persisting size", async () => {
-	const calls: string[] = [];
-	await closeEditorWindow(
-		async (): Promise<void> => {
-			calls.push("hide-map");
-		},
-		async (): Promise<EditorSize> => ({ width: 1, height: 1 }),
-		async (): Promise<void> => {
-			calls.push("save-size");
-		},
+test("editor navigation hides the overlay and restores flow-card focus", () => {
+	const app = readFileSync(new URL("./app.ts", import.meta.url), "utf8");
+	expectAssert.match(
+		app,
+		/async function closeEditor[\s\S]*await hideOverlay\(\)[\s\S]*setView\("compact"\)[\s\S]*data-flow-id/,
 	);
-	expectAssert.deepEqual(calls, ["hide-map", "save-size"]);
-	calls.length = 0;
-	await handleEditorWindowClosed(
-		{ width: 2, height: 2 },
-		async (): Promise<void> => {
-			calls.push("hide-map");
-		},
-		async (): Promise<void> => {
-			calls.push("save-size");
-		},
+	expectAssert.match(
+		app,
+		/flowsTab[\s\S]*hideOverlay\(\)[\s\S]*setView\("compact"\)/,
 	);
-	expectAssert.deepEqual(calls, ["hide-map", "save-size"]);
+	expectAssert.match(
+		app,
+		/settingsTab[\s\S]*await hideOverlay\(\)[\s\S]*setView\("settings"\)/,
+	);
 });
 
 test("name focus selects the full value before and after primary-selection rerender", () => {
@@ -762,12 +823,9 @@ test("editor and overlay wire focus, dismissal, and primary click selection", ()
 
 	expectAssert.match(
 		app,
-		/closeEditorWindow\([\s\S]*hideOverlay,[\s\S]*\(\) => invoke\("hide_editor"\)/,
+		/function publishEditorSnapshot[\s\S]*renderEditorView\(snapshot\)/,
 	);
-	expectAssert.match(
-		app,
-		/handleEditorWindowClosed\([\s\S]*normalizeEditorSize\(event\.payload\),[\s\S]*hideOverlay/,
-	);
+	expectAssert.match(app, /function openEditor[\s\S]*setView\("editor"\)/);
 	expectAssert.match(
 		app,
 		/emitTo\("overlay", "overlay-selection", \{\s*actionId: selectedActionId,?\s*\}\)/,
@@ -778,7 +836,7 @@ test("editor and overlay wire focus, dismissal, and primary click selection", ()
 	);
 	expectAssert.match(
 		editor,
-		/beginNameFocus\(selected, id, input\)[\s\S]*send\("select-action", \{ actionId: id, multi: false \}\)[\s\S]*restoreNameFocus/,
+		/beginNameFocus\(selected, id, name\)[\s\S]*intent\?\.\("select-action", \{ actionId: id, multi: false \}\)[\s\S]*restoreNameFocus/,
 	);
 	expectAssert.match(
 		overlay,

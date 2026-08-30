@@ -73,9 +73,6 @@ pub fn set_playback_hud(
         let scale = main.scale_factor().unwrap_or(1.0).max(0.1);
         let position = clamp_position(original.position, &monitor, scale);
         let result = (|| {
-            if let Some(editor) = app.get_window("editor") {
-                let _ = editor.hide();
-            }
             if let Some(overlay) = app.get_webview_window("overlay") {
                 let _ = overlay.hide();
             }

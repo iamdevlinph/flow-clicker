@@ -527,12 +527,6 @@ body.hud-mode .status-banner {
 	border-radius: 11px;
 	margin-bottom: 10px;
 }
-.transport-divider {
-	width: 1px;
-	height: 26px;
-	background: var(--line);
-	margin: 0 2px;
-}
 .record-dot {
 	display: inline-block;
 	width: 8px;

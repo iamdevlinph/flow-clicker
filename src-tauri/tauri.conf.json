@@ -22,18 +22,6 @@
 				"center": true
 			},
 			{
-				"label": "editor",
-				"title": "FlowClicker Editor",
-				"url": "editor.html",
-				"width": 1100,
-				"height": 760,
-				"minWidth": 720,
-				"minHeight": 620,
-				"visible": false,
-				"resizable": true,
-				"center": true
-			},
-			{
 				"label": "overlay",
 				"title": "FlowClicker Overlay",
 				"url": "overlay.html",

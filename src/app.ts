@@ -9,7 +9,7 @@ import {
 	replaceWithPortableData,
 } from "./data-transfer.js";
 import { bindDurationInput } from "./duration-input.js";
-import { closeEditorWindow, handleEditorWindowClosed } from "./editor-close.js";
+import { bindEditorView, mountEditorView, renderEditorView } from "./editor.js";
 import { renderFlowLibrary } from "./flow-library.js";
 import { normalizeFlowSelection, removeFlow } from "./flow-lifecycle.js";
 import { moveFlow, moveFlowByKey } from "./flow-ordering.js";
@@ -113,7 +113,6 @@ type HotkeyCapture = {
 	let importSelection: Set<string> = new Set();
 	const dialogFocus = new Map<string, HTMLElement | null>();
 	let editorOpen = false;
-	let restoreEditor = false;
 	let pendingDeleteFlow: Flow | null = null;
 	let deleteInProgress = false;
 	let capturingHotkey: HotkeyCapture | null = null;
@@ -346,8 +345,9 @@ type HotkeyCapture = {
 		renderSettings();
 	}
 
-	function setView(view: "compact" | "settings"): void {
+	function setView(view: "compact" | "settings" | "editor"): void {
 		document.body.classList.toggle("settings-view", view === "settings");
+		document.body.classList.toggle("editor-view", view === "editor");
 		if (view !== "settings") closeSettingsModal();
 	}
 
@@ -367,8 +367,7 @@ type HotkeyCapture = {
 
 	function publishEditorSnapshot(): void {
 		const snapshot = editorSnapshot();
-		if (snapshot && emitTo)
-			emitTo("editor", "editor-snapshot", snapshot).catch(() => {});
+		renderEditorView(snapshot);
 		if (mapVisible && emitTo)
 			emitTo("overlay", "overlay-selection", {
 				actionId: selectedActionId,
@@ -379,46 +378,22 @@ type HotkeyCapture = {
 		if (!flow) return;
 		state.selectedFlowId = flow.id;
 		selectedActionId = null;
-		setView("compact");
-		try {
-			await invoke("show_editor", { editorSize: state.editorSize });
-			editorOpen = true;
-		} catch (err) {
-			toast("Editor unavailable", String(err), "error");
-			return;
-		}
+		editorOpen = true;
+		setView("editor");
 		publishEditorSnapshot();
+		requestAnimationFrame(() => $("editorHeading")?.focus());
 	}
 
 	async function closeEditor(): Promise<void> {
 		editorOpen = false;
-		try {
-			await closeEditorWindow(
-				hideOverlay,
-				() => invoke("hide_editor"),
-				async (size) => {
-					if (size) {
-						state.editorSize = normalizeEditorSize(size);
-						await saveState();
-					}
-				},
-			);
-		} catch (_) {}
+		await hideOverlay();
+		setView("compact");
+		document
+			.querySelector<HTMLElement>(
+				`[data-flow-id="${CSS.escape(state.selectedFlowId || "")}"]`,
+			)
+			?.focus();
 	}
-	function suspendEditorForModal(): void {
-		if (!editorOpen) return;
-		restoreEditor = true;
-		invoke("hide_editor").catch(() => {});
-	}
-	async function restoreEditorAfterModal(): Promise<void> {
-		if (!restoreEditor) return;
-		restoreEditor = false;
-		try {
-			await invoke("show_editor", { editorSize: state.editorSize });
-			publishEditorSnapshot();
-		} catch (_) {}
-	}
-
 	function applyEditorIntent(intent: NativePayload = {}): void | Promise<void> {
 		const flow = currentFlow();
 		if (intent.type === "close") return closeEditor();
@@ -518,7 +493,6 @@ type HotkeyCapture = {
 			$("appShell").inert = false;
 		dialogFocus.get(id)?.focus?.();
 		dialogFocus.delete(id);
-		restoreEditorAfterModal();
 	}
 
 	function renderFlowList(): void {
@@ -620,7 +594,6 @@ type HotkeyCapture = {
 	}
 	function openFlowSettings(flow: Flow | null | undefined): void {
 		if (!flow) return;
-		suspendEditorForModal();
 		renderSettings();
 		openDialog("flowSettingsModal", "closeFlowSettingsBtn");
 	}
@@ -670,7 +643,6 @@ type HotkeyCapture = {
 	function openLibraryGroupModal(group: LibraryGroup | null): void {
 		$("libraryGroupHeading").textContent = group ? "Rename group" : "New group";
 		$("libraryGroupNameInput").value = group?.name || "";
-		suspendEditorForModal();
 		openDialog("libraryGroupModal", "libraryGroupNameInput");
 		$("saveLibraryGroupBtn").onclick = () => {
 			const name = $("libraryGroupNameInput").value.trim();
@@ -687,7 +659,6 @@ type HotkeyCapture = {
 		pendingDeleteFlow = flow;
 		$("deleteFlowMessage").textContent =
 			`Delete “${flow.name}”? This cannot be undone.`;
-		suspendEditorForModal();
 		const origin =
 			(document.querySelector(
 				`[data-flow-id="${CSS.escape(flow.id)}"]`,
@@ -709,7 +680,6 @@ type HotkeyCapture = {
 			selectedActionIds = new Set();
 			pendingDeleteFlow = null;
 			const empty = !state.flows.length;
-			if (empty) restoreEditor = false;
 			dialogFocus.set("deleteFlowModal", $("newFlowBtn"));
 			closeDialog("deleteFlowModal");
 			if (empty) {
@@ -876,7 +846,6 @@ type HotkeyCapture = {
 			untilTime: nextDeadline(playback.untilTime),
 		};
 		try {
-			if (editorOpen) await closeEditor();
 			await hideOverlay();
 			await setPlaybackHud(true);
 			await setActivityBadge(invoke, "playing");
@@ -971,7 +940,6 @@ type HotkeyCapture = {
 			.map((f) => `<option value="${f.id}">${escapeHtml(f.name)}</option>`)
 			.join("");
 		$("importPosition").value = selectedActionId ? "after" : "end";
-		suspendEditorForModal();
 		openDialog("importModal", "importSourceFlow");
 		renderImportActions();
 	}
@@ -1061,26 +1029,11 @@ type HotkeyCapture = {
 	async function confirmPortableImport() {
 		if (!pendingPortableData || recording || playing)
 			return closeDialog("portableConfirmModal");
-		const editorWasOpen = editorOpen;
 		const overlayWasVisible = mapVisible;
 		await hideOverlay();
-		let editorSize = state.editorSize;
-		editorOpen = false;
-		try {
-			editorSize =
-				normalizeEditorSize(await invoke("hide_editor")) || editorSize;
-		} catch (_) {}
 		const replacement = replaceWithPortableData(state, pendingPortableData);
-		replacement.editorSize = editorSize;
 		if (!(await saveState(false, replacement))) {
-			if (editorWasOpen) {
-				try {
-					await invoke("show_editor", { editorSize });
-					editorOpen = true;
-					publishEditorSnapshot();
-				} catch (_) {}
-			}
-			if (overlayWasVisible) await showOverlay(true);
+			if (overlayWasVisible && editorOpen) await showOverlay(true);
 			return;
 		}
 		state = replacement;
@@ -1089,6 +1042,10 @@ type HotkeyCapture = {
 		selectedActionId = null;
 		selectedActionIds = new Set();
 		pendingPortableData = null;
+		editorOpen = false;
+		$("flowsTab").classList.add("active");
+		$("settingsTab").classList.remove("active");
+		setView("compact");
 		closeDialog("portableConfirmModal");
 		renderAll();
 		toast(
@@ -1213,16 +1170,19 @@ type HotkeyCapture = {
 			closeLibraryMenu();
 			openCombineModal();
 		});
-		$("flowsTab").addEventListener("click", () => {
+		$("flowsTab").addEventListener("click", async () => {
+			editorOpen = false;
+			await hideOverlay();
 			$("flowsTab").classList.add("active");
 			$("settingsTab").classList.remove("active");
 			setView("compact");
 		});
-		$("settingsTab").addEventListener("click", () => {
+		$("settingsTab").addEventListener("click", async () => {
+			await hideOverlay();
 			$("settingsTab").classList.add("active");
 			$("flowsTab").classList.remove("active");
 			setView("settings");
-			hideOverlay();
+			editorOpen = false;
 			renderSettings();
 		});
 		$("closeFlowSettingsBtn").addEventListener("click", () =>
@@ -1486,22 +1446,7 @@ type HotkeyCapture = {
 
 	async function bindTauriEvents() {
 		if (!listen) return;
-		await listen("editor-intent", (event) => applyEditorIntent(event.payload));
 		await listen("overlay-dismiss-requested", () => hideOverlay());
-		await listen("editor-window-closed", async (event) => {
-			editorOpen = false;
-			await handleEditorWindowClosed(
-				normalizeEditorSize(event.payload),
-				hideOverlay,
-				async (payload) => {
-					const size = normalizeEditorSize(payload);
-					if (size) {
-						state.editorSize = size;
-						await saveState();
-					}
-				},
-			);
-		});
 		await listen("recorded-click", (event) => {
 			const flow = currentFlow();
 			if (!flow) return;
@@ -1596,7 +1541,9 @@ type HotkeyCapture = {
 		});
 	}
 
+	mountEditorView($("editorPanel"));
 	bindUi();
+	bindEditorView((type, payload) => applyEditorIntent({ type, ...payload }));
 	bindTauriEvents();
 	showVersion().catch(() => {});
 	loadState();

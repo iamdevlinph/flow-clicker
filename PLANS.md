@@ -52,7 +52,7 @@ relevant automated check or platform smoke test is recorded here.
 
 ## Known gaps and defects
 
-- Separate editor-window grouping and multi-selection interactions are incomplete.
+- Editor grouping and multi-selection interactions are incomplete.
 - Rendered and physical smoke verification remains pending.
 - Closing the overlay with Alt+F4 has an application-lifecycle defect.
 - The frontend controller duplicates state/model behavior and lacks adequate
@@ -77,8 +77,8 @@ covered by the focused Node checks; code inspection confirms group saves use
 the existing autosave path without touching flows. Rendered desktop verification
 remains pending.
 
-Click-map interaction evidence (2026-08-28): closing the editor through its
-button or native title bar also hides the click map; the focused overlay handles
+Click-map interaction evidence (2026-08-28): leaving the editor through the
+Flows or Settings main navigation also hides the click map; the focused overlay handles
 Escape through the existing hide path. Focusing an action name makes it the
 primary selection and preserves full-value selection across the editor rerender.
 The overlay emphasizes only the primary selected click and clears emphasis for
@@ -110,12 +110,12 @@ selection rules, and validated hotkey capture normalization are covered by
 focused Node checks; frontend syntax and whitespace checks pass. Rendered and
 physical hotkey verification remain pending.
 
-Editor action-layout evidence (2026-08-24): row actions render as one compact
-four-button group, the Target and Actions columns shrink-wrap their controls,
-and the editor's native/document minimum width is 720 logical pixels. Focused
-Node coverage, frontend syntax checks, configuration parsing, and whitespace
-checks pass; rendered comparison remains pending because the current environment
-lacks the Tauri/Linux GUI dependencies.
+In-window editor evidence (2026-08-30): editing is a Flows subview in the fixed
+460×720 main window. Actions render as compact wrapping cards with inline names
+and native per-action disclosure for metadata and row-local move, duplicate, and
+delete controls. The legacy
+`editorSize` field remains accepted as ignored schema-version-3 compatibility
+data. Rendered comparison and physical input verification remain pending.
 
 Collapsible-group evidence (2026-08-24): group collapse state is normalized
 into schema-version-3 group records, defaults new and legacy groups to
@@ -148,9 +148,9 @@ desktop comparison remain pending.
 Playback HUD and activity badge evidence (2026-08-28): playback temporarily
 reuses the main window as a compact 220×36 logical-pixel, frameless, always-on-top,
 unfocusable, click-through HUD clamped to the current monitor work area. The
-editor and click-map overlay are hidden for playback and the main window's
-size, position, decorations, and stacking are restored after stop, completion,
-or failure. The existing accessible runtime status is the only HUD content;
+click-map overlay is hidden for playback and the main window's size, position,
+decorations, and stacking are restored after stop, completion, or failure,
+revealing the editor subview when playback began there. The existing accessible runtime status is the only HUD content;
 recording keeps the normal UI. Native activity commands apply green playback,
 red recording, and normal idle app-icon badges; badge/HUD failures are
 nonfatal. Focused Node checks, syntax, and whitespace validation pass; native
@@ -196,8 +196,8 @@ remain pending until an X11 desktop is available.
 - [ ] Keep card dragging as the manual flow-ordering interaction.
 - [ ] Open a full playback-settings modal from the card gear.
 - [ ] Move flow combining to **Actions → Combine Flows** in a modal.
-- [ ] Open and stabilize the separate hidden editor OS window for flow editing.
-- [ ] Keep Settings and the closed-editor state compact.
+- [x] Edit flows in a compact Flows subview of the fixed main window.
+- [x] Keep Settings and the closed-editor state compact.
 - [ ] Dismiss the Actions menu on click-away.
 - [x] Make Escape dismiss the click-map overlay.
 - [ ] Make Alt+F4 exit the application, including when the overlay has focus.
@@ -231,16 +231,16 @@ pending, so the result remains **NOT RUN** and no successor-app work may start.
 - Card dragging remains the manual ordering mechanism.
 - The card gear opens a full playback-settings modal.
 - **Actions → Combine Flows** opens a modal.
-- The main window stays compact; editing opens the separate hidden `editor` OS window, which receives flow snapshots and sends narrow edit/transport intents back to the main window.
+- The main window stays fixed at 460×720; editing opens a compact Flows subview
+  whose renderer sends narrow edit/transport intents to the main controller.
 - Settings and closed-editor states use a compact window.
 - Escape dismisses the overlay; Alt+F4 exits the application.
 - The overlay is a separate OS window in the same process.
 - Flow-group collapse is persisted as `collapsed` on each schema-version-3
   group; search is a temporary visual override and does not rewrite that
   preference.
-- Editor size is persisted as logical width/height on close and restored when
-  the editor opens; position, maximized state, and continuous resize events are
-  intentionally not persisted.
+- Legacy `editorSize` data remains accepted for schema-version-3 compatibility
+  but has no runtime window-management effect.
 - Playback settings are shared by every flow and edited from any card's gear;
   the steps editor keeps row-local move, duplicate, and delete icon actions in
   an Actions column.
@@ -253,9 +253,8 @@ pending, so the result remains **NOT RUN** and no successor-app work may start.
   Focused Node and Rust checks pass; rendered and physical input verification
   remain pending.
 - Flow-creation evidence (2026-08-28): top-bar creation, empty-library creation,
-  and duplication select and save the new flow without changing editor-window
+  and duplication select and save the new flow without changing editor-view
   visibility. Explicit double-click and Edit-menu actions still open the editor;
   focused frontend checks, JavaScript syntax, and whitespace validation pass.
 - The main-window runtime state is always visible in a layout-reserving banner
-  above the top bar: grey Idle, red Recording, and green Playing. The separate
-  editor window is unchanged.
+  above the top bar: grey Idle, red Recording, and green Playing.
