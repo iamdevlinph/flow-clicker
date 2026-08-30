@@ -117,9 +117,28 @@ test("flow cards use four columns and omit metadata", () => {
 	);
 	expectAssert.match(
 		html,
+		/class="icon-btn flow-edit"[^>]*title="Edit flow"[^>]*aria-label="Edit Flow"[^>]*>✎<\/button>/,
+	);
+	expectAssert.match(
+		html,
 		/class="icon-btn flow-settings"[^>]*aria-label="Playback settings"/,
 	);
 	expectAssert.doesNotMatch(html, /flow-row-meta|actions ·|clicks ·|delays/);
+});
+
+test("flow card double-click opens settings while its controls keep their actions", () => {
+	const library = readFileSync(
+		new URL("./flow-library.ts", import.meta.url),
+		"utf8",
+	);
+	expectAssert.match(
+		library,
+		/row\.addEventListener\("dblclick"[\s\S]*?closest\("button, input"\)\) onSettings\(flow\)/,
+	);
+	expectAssert.match(
+		library,
+		/querySelector<HTMLButtonElement>\("\.flow-edit"\)[\s\S]*?onEdit\(flow\)/,
+	);
 });
 
 test("combine summary source order follows card selection order", () => {
