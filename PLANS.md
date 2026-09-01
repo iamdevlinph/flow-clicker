@@ -21,7 +21,9 @@ background-tab clicking.
   IDs; source flows are never mutated.
 - Combined-flow order is the checkbox selection order shown in the library.
 - Canceling a prompt or dialog makes no change.
-- State is persisted as `state.json` in the user's application-data directory.
+- State is persisted as `state.json` in the user's application-data directory,
+  with the two preceding valid saves retained as `state.json.bak1` and
+  `state.json.bak2` for transparent recovery.
 - Stop requests must halt physical playback promptly.
 
 ## Status legend
