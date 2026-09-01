@@ -157,6 +157,7 @@ fn save_to_dir(json: &str, dir: &Path) -> Result<(), String> {
     let mut file = File::create(&tmp).map_err(|e| e.to_string())?;
     file.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
     file.sync_all().map_err(|e| e.to_string())?;
+    drop(file);
     let primary_valid = valid_json(&primary)?;
     if primary_valid {
         rotate_backup(dir)?;
