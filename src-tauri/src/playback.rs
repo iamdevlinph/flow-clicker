@@ -1,6 +1,6 @@
 use crate::{
     input::RuntimeState,
-    models::{ClickButton, FlowAction, PlaybackOptions, RepeatMode, RepeatUnit, WindowTarget},
+    models::{ClickButton, FlowAction, PlaybackOptions, RepeatMode, RepeatUnit},
     platform,
 };
 use enigo::{Button as EnigoButton, Coordinate, Direction, Enigo, Mouse, Settings};
@@ -130,7 +130,6 @@ pub fn play(
     runtime: Arc<RuntimeState>,
     actions: Vec<FlowAction>,
     options: PlaybackOptions,
-    target: WindowTarget,
 ) -> Result<(), String> {
     if actions.is_empty() {
         return Err("The selected flow has no actions.".into());
@@ -143,13 +142,6 @@ pub fn play(
     if runtime.playing.swap(true, Ordering::SeqCst) {
         return Err("A flow is already playing.".into());
     }
-    let resolved_target = match platform::prepare_target(&target, options.focus_target_window) {
-        Ok(target) => target,
-        Err(error) => {
-            runtime.playing.store(false, Ordering::SeqCst);
-            return Err(error);
-        }
-    };
     runtime.recording.store(false, Ordering::SeqCst);
     runtime.stop_playback.store(false, Ordering::SeqCst);
 
@@ -195,7 +187,6 @@ pub fn play(
                     &app,
                     &mut click_count,
                     started,
-                    resolved_target,
                 ) {
                     break 'outer;
                 }
@@ -243,7 +234,6 @@ fn play_action(
     app: &AppHandle,
     click_count: &mut u64,
     started: Instant,
-    target: platform::ResolvedTarget,
 ) -> bool {
     match action {
         FlowAction::Group {
@@ -258,16 +248,7 @@ fn play_action(
                     {
                         return false;
                     }
-                    if !play_action(
-                        enigo,
-                        child,
-                        options,
-                        runtime,
-                        app,
-                        click_count,
-                        started,
-                        target,
-                    ) {
+                    if !play_action(enigo, child, options, runtime, app, click_count, started) {
                         return false;
                     }
                 }
@@ -294,13 +275,7 @@ fn play_action(
                 return false;
             }
             let click = action.as_click().expect("click action");
-            let (x, y) = match platform::resolve_target(target, &click) {
-                Ok(point) => point,
-                Err(error) => {
-                    let _ = app.emit("playback-error", error);
-                    return false;
-                }
-            };
+            let (x, y) = platform::resolve(&click, options.focus_target_window);
             if enigo.move_mouse(x, y, Coordinate::Abs).is_err() {
                 let _ = app.emit(
                     "playback-error",
@@ -310,17 +285,6 @@ fn play_action(
             }
             if !interruptible_sleep(options.settle_ms, 1.0, runtime, options, started) {
                 return false;
-            }
-            match platform::resolve_target(target, &click) {
-                Ok(current) if current == (x, y) => {}
-                Ok(_) => {
-                    let _ = app.emit("playback-error", "Recorded target moved before the click.");
-                    return false;
-                }
-                Err(error) => {
-                    let _ = app.emit("playback-error", error);
-                    return false;
-                }
             }
             let button = enigo_button(*button);
             if enigo.button(button, Direction::Press).is_err() {

@@ -83,19 +83,17 @@ test("round-trip import preserves local settings and selects first flow", () => 
 	expect(source.flows[0].name).toBe("Flow");
 });
 
-test("round-trips v4 targets and imports v3 flows as unbound", () => {
+test("accepts v3/v4 imports and discards obsolete targets", () => {
 	const source = state();
-	source.flows[0].target = {
-		executablePath: "C:\\App.exe",
-		className: "Main",
-		title: "A",
-	};
-	expect(parsePortableData(exportPortableData(source)).flows[0].target).toEqual(
-		source.flows[0].target,
-	);
 	const legacy = JSON.parse(exportPortableData(source));
+	legacy.flows[0].target = { executablePath: "C:\\App.exe" };
+	expect("target" in parsePortableData(JSON.stringify(legacy)).flows[0]).toBe(
+		false,
+	);
 	legacy.version = 3;
-	expect(parsePortableData(JSON.stringify(legacy)).flows[0].target).toBeNull();
+	expect("target" in parsePortableData(JSON.stringify(legacy)).flows[0]).toBe(
+		false,
+	);
 });
 
 test("empty libraries import with no selection", () => {

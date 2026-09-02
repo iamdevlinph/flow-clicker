@@ -56,7 +56,6 @@ import {
 	migrateState as migratePersistedState,
 	nextDeadline,
 	normalizeEditorSize,
-	sameRecordedWindow,
 } from "./state-model.js";
 import type {
 	Action,
@@ -67,9 +66,7 @@ import type {
 	NativeInvoke,
 	NativePayload,
 	Playback,
-	WindowTarget,
 } from "./types.js";
-import { captureWindowTarget } from "./window-target.js";
 
 type PortableData = { version: 4; flows: Flow[]; groups: LibraryGroup[] };
 type ClickAction = Extract<Action, { type: "click" }>;
@@ -141,8 +138,6 @@ type HotkeyCapture = {
 	} | null = null;
 	let statusTimer: ReturnType<typeof setInterval> | null = null;
 	let pendingPortableData: PortableData | null = null;
-	let bindingCountdown: AbortController | null = null;
-	let recordingWindowHandle: number | null = null;
 
 	const uid = (): string =>
 		crypto.randomUUID
@@ -767,7 +762,6 @@ type HotkeyCapture = {
 		);
 		const token = recordingSessionState.token;
 		try {
-			recordingWindowHandle = null;
 			await hideOverlay();
 			if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
 			await invoke("start_recording");
@@ -822,7 +816,6 @@ type HotkeyCapture = {
 			if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
 			recordingSessionState = idleRecordingSession();
 			recordingSessionState.token = token;
-			recordingWindowHandle = null;
 			setStatus("Idle");
 			toast("Could not start recording", String(err), "error");
 		}
@@ -831,7 +824,6 @@ type HotkeyCapture = {
 	async function stopRecording() {
 		const flow = currentFlow();
 		recordingSessionState = stopRecordingSession(recordingSessionState);
-		recordingWindowHandle = null;
 		if (!nativeAvailable) {
 			publishEditorSnapshot();
 			setStatus("Idle");
@@ -857,7 +849,6 @@ type HotkeyCapture = {
 			? state.flows.find((candidate) => candidate.id === session.flowId)
 			: null;
 		recordingSessionState = cancelled.state;
-		recordingWindowHandle = null;
 		try {
 			if (nativeAvailable) await invoke("stop_recording");
 		} catch (_) {}
@@ -874,13 +865,6 @@ type HotkeyCapture = {
 	}
 
 	async function runFlow(flow = currentFlow()) {
-		if (bindingCountdown) {
-			bindingCountdown.abort();
-			bindingCountdown = null;
-			setStatus("Idle");
-			toast("Binding cancelled", "Playback was not started.", "error");
-			return;
-		}
 		if (flow) {
 			state.selectedFlowId = flow.id;
 			scheduleSave();
@@ -897,31 +881,6 @@ type HotkeyCapture = {
 				"Build and run the FlowClicker desktop app to use native mouse input.",
 				"error",
 			);
-		if (!flow.target) {
-			const countdown = new AbortController();
-			bindingCountdown = countdown;
-			try {
-				const target = await captureWindowTarget(
-					invoke,
-					countdown.signal,
-					setStatus,
-				);
-				if (!target) return;
-				const previousTarget = flow.target;
-				flow.target = target;
-				touchFlow(flow);
-				if (!(await saveState())) {
-					flow.target = previousTarget;
-					throw new Error("Could not save the target window.");
-				}
-				renderAll();
-			} catch (err) {
-				setStatus("Idle");
-				return toast("Playback unavailable", String(err), "error");
-			} finally {
-				if (bindingCountdown === countdown) bindingCountdown = null;
-			}
-		}
 		const playback = flowPlayback();
 		runningFlowId = flow.id;
 		activePlayback = {
@@ -952,7 +911,6 @@ type HotkeyCapture = {
 			await invoke("play_flow", {
 				actionsJson: JSON.stringify(flow.actions),
 				optionsJson: JSON.stringify(options),
-				targetJson: JSON.stringify(flow.target ?? null),
 			});
 			publishEditorSnapshot();
 		} catch (err) {
@@ -1572,33 +1530,6 @@ type HotkeyCapture = {
 				typeof c.delayMs !== "number"
 			)
 				return;
-			if (c.executablePath && c.className && c.windowTitle) {
-				const target: WindowTarget = {
-					executablePath: c.executablePath,
-					className: c.className,
-					title: c.windowTitle,
-				};
-				if (
-					!sameRecordedWindow(
-						flow.target,
-						recordingWindowHandle,
-						target,
-						c.windowHandle,
-					)
-				)
-					return toast(
-						"Click ignored",
-						"The click came from a different window.",
-						"error",
-					);
-				recordingWindowHandle ??= c.windowHandle;
-				if (!flow.target) flow.target = target;
-			} else
-				return toast(
-					"Click ignored",
-					"The target window could not be identified.",
-					"error",
-				);
 			const a: ClickAction = {
 				id: uid(),
 				type: "click",

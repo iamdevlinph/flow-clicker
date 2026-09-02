@@ -4,21 +4,10 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct WindowSnapshot {
     pub title: Option<String>,
-    pub executable_path: Option<String>,
-    pub class_name: Option<String>,
-    pub window_handle: Option<i64>,
     pub left: Option<i32>,
     pub top: Option<i32>,
     pub right: Option<i32>,
     pub bottom: Option<i32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WindowTarget {
-    pub executable_path: String,
-    pub class_name: String,
-    pub title: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,9 +20,6 @@ pub struct RecordedClick {
     pub relative_x: Option<i32>,
     pub relative_y: Option<i32>,
     pub window_title: Option<String>,
-    pub executable_path: Option<String>,
-    pub class_name: Option<String>,
-    pub window_handle: Option<i64>,
     pub delay_ms: u64,
 }
 

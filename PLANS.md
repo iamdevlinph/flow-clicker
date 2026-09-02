@@ -25,9 +25,8 @@ background-tab clicking.
   with the two preceding valid saves retained as `state.json.bak1` and
   `state.json.bak2` for transparent recovery.
 - Stop requests must halt physical playback promptly.
-- On Windows, each flow is bound to one executable/window-class target and
-  playback stops before clicking if that resolved window loses focus, closes,
-  is obscured, or cannot safely resolve relative coordinates.
+- On Windows, playback uses title-relative coordinates when they can be
+  resolved and otherwise falls back to the recorded screen coordinates.
 
 ## Status legend
 
@@ -112,8 +111,8 @@ and rendered desktop comparison were not exercised.
 
 Recording-cancellation evidence (2026-09-02): pressing Escape in FlowClicker or
 through the global recorder cancels recording once, rejects delayed clicks,
-restores and persists the selected flow's pre-recording actions, target,
-timestamp, and action selection, and cannot reactivate an asynchronously
+restores and persists the selected flow's pre-recording actions, timestamp,
+and action selection, and cannot reactivate an asynchronously
 cancelled startup. Stop and the configured recording hotkey continue to keep
 recorded actions. Automated frontend and Rust checks cover the cancellation
 paths; physical input and rendered desktop comparison were not exercised.
@@ -126,16 +125,12 @@ name has focus. Escape outside the editor retains its existing dismissal
 behavior. Frontend checks cover the ordering; rendered comparison remains
 unavailable without desktop screenshot tooling.
 
-Strict-window playback evidence (2026-09-02): schema-version-4 flows persist a
-Windows executable/class/title target while accepting schema-version-3 data as
-unbound. Recording replacement clears and safely replaces the target; imports
-retain the destination target; combinations retain only a shared
-executable/class signature. Legacy flows bind after the existing status/toast
-countdown. Windows playback resolves one target handle, optionally focuses it
-once, and checks foreground ownership, relative bounds, occlusion, and window
-movement before every physical press without screen-coordinate fallback.
-Frontend type/build/tests, Rust tests, and Windows cross-compilation pass;
-rendered comparison and physical input were not exercised.
+Matching-window rollback evidence (2026-09-02): schema-version-4 state and
+schema-version-3/4 imports remain accepted while obsolete target metadata is
+discarded. Recording again accepts clicks across windows. Windows playback uses
+title-relative coordinates when available, honors optional target focusing, and
+falls back to recorded screen coordinates when a title or relative coordinate
+cannot be resolved. Physical input was not exercised.
 
 Lifecycle/settings evidence (2026-08-24): empty-library normalization, deletion
 selection rules, and validated hotkey capture normalization are covered by
@@ -250,6 +245,8 @@ pending, so the result remains **NOT RUN** and no successor-app work may start.
 
 - Multi-monitor overlay selection and virtual-desktop coverage.
 - macOS window-relative tracking plus Accessibility permission-status UX.
+- Strict executable/class/window-handle matching and foreground/occlusion
+  enforcement for playback.
 - Flow and action drag improvements not already implemented.
 - Remaining automated coverage for combine, import, repeat, and stop behavior.
 - Physical Windows and macOS smoke tests, including recording, playback,

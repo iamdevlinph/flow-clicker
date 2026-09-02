@@ -143,14 +143,7 @@ function validatePortable(value: unknown): PortableData {
 							!own(source, ["id", "name"]) ||
 							!isId(source.id) ||
 							!isId(source.name),
-					))) ||
-			(flow.target !== undefined &&
-				flow.target !== null &&
-				(!isObject(flow.target) ||
-					!own(flow.target, ["executablePath", "className", "title"]) ||
-					!isId(flow.target.executablePath) ||
-					!isId(flow.target.className) ||
-					typeof flow.target.title !== "string"))
+					)))
 		)
 			throw new Error("Invalid flow");
 		ids.add(flow.id);
@@ -160,10 +153,9 @@ function validatePortable(value: unknown): PortableData {
 		});
 	});
 	const copy = structuredClone(value) as PortableData;
-	if (value.version === 3)
-		copy.flows.forEach((flow) => {
-			flow.target = null;
-		});
+	copy.flows.forEach((flow) => {
+		Reflect.deleteProperty(flow, "target");
+	});
 	return { ...copy, version: VERSION };
 }
 
@@ -172,7 +164,11 @@ export function exportPortableData(state: AppState | null | undefined): string {
 		{
 			version: VERSION,
 			flows: (state?.flows || []).map((flow) => {
-				const { playback: _playback, ...portable } = structuredClone(flow);
+				const {
+					playback: _playback,
+					target: _target,
+					...portable
+				} = structuredClone(flow) as Flow & { target?: unknown };
 				return portable;
 			}),
 			groups: structuredClone(state?.groups || []),

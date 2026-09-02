@@ -12,7 +12,7 @@ use crate::{
     input::RuntimeState,
     models::{
         ClickButton, FlowAction, OverlayMove, OverlayPayload, OverlayPoint, PlatformInfo,
-        PlaybackOptions, RecordedClick, WindowTarget,
+        PlaybackOptions, RecordedClick,
     },
 };
 use enigo::{Enigo, Mouse, Settings};
@@ -86,7 +86,6 @@ fn play_flow(
     runtime: State<'_, Arc<RuntimeState>>,
     actions_json: String,
     options_json: String,
-    target_json: Option<String>,
 ) -> Result<(), String> {
     let actions: Vec<FlowAction> =
         serde_json::from_str(&actions_json).map_err(|e| format!("Invalid actions: {e}"))?;
@@ -95,10 +94,7 @@ fn play_flow(
     }
     let options: PlaybackOptions = serde_json::from_str(&options_json)
         .map_err(|e| format!("Invalid playback options: {e}"))?;
-    let target = target_json
-        .and_then(|json| serde_json::from_str::<WindowTarget>(&json).ok())
-        .ok_or("Strict playback requires a recorded target window.")?;
-    playback::play(app, runtime.inner().clone(), actions, options, target)
+    playback::play(app, runtime.inner().clone(), actions, options)
 }
 
 #[tauri::command]
@@ -110,15 +106,9 @@ fn stop_playback(runtime: State<'_, Arc<RuntimeState>>) {
 
 #[tauri::command]
 fn cursor_snapshot() -> Result<RecordedClick, String> {
-    if !cfg!(target_os = "windows") {
-        return Err("Strict window playback is unavailable on this platform.".into());
-    }
     let enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     let (x, y) = enigo.location().map_err(|e| e.to_string())?;
     let snap = platform::foreground();
-    if platform::is_flowclicker_title(snap.title.as_deref()) {
-        return Err("Choose a target window other than FlowClicker.".into());
-    }
     let (rx, ry) = match (snap.left, snap.top) {
         (Some(left), Some(top)) => (Some(x - left), Some(y - top)),
         _ => (None, None),
@@ -130,9 +120,6 @@ fn cursor_snapshot() -> Result<RecordedClick, String> {
         relative_x: rx,
         relative_y: ry,
         window_title: snap.title,
-        executable_path: snap.executable_path,
-        class_name: snap.class_name,
-        window_handle: snap.window_handle,
         delay_ms: 0,
     })
 }
@@ -147,9 +134,6 @@ fn retarget_click(window_title: Option<String>, screen_x: i32, screen_y: i32) ->
         relative_x: rx,
         relative_y: ry,
         window_title,
-        executable_path: None,
-        class_name: None,
-        window_handle: None,
         delay_ms: 0,
     }
 }

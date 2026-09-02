@@ -244,9 +244,6 @@ fn handle_event(app: &AppHandle, runtime: &RuntimeState, event: Event) {
                 relative_x: rx,
                 relative_y: ry,
                 window_title: snap.title,
-                executable_path: snap.executable_path,
-                class_name: snap.class_name,
-                window_handle: snap.window_handle,
                 delay_ms: delay,
             };
             let _ = app.emit("recorded-click", click);

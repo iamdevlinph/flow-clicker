@@ -7,7 +7,6 @@ export type RecordingSelection = {
 
 export type RecordingSnapshot = RecordingSelection & {
 	actions: Action[];
-	target?: Flow["target"];
 	updatedAt?: string;
 };
 
@@ -18,11 +17,9 @@ export function beginRecordingReplacement(
 	const snapshot: RecordingSnapshot = {
 		actions: structuredClone(flow.actions),
 		updatedAt: flow.updatedAt,
-		target: structuredClone(flow.target),
 		...selection,
 	};
 	flow.actions = [];
-	flow.target = null;
 	return snapshot;
 }
 
@@ -32,7 +29,6 @@ export function restoreRecordingReplacement(
 ): RecordingSelection {
 	flow.actions = structuredClone(snapshot.actions);
 	flow.updatedAt = snapshot.updatedAt;
-	flow.target = structuredClone(snapshot.target);
 	return {
 		selectedActionId: snapshot.selectedActionId,
 		selectedActionIds: [...snapshot.selectedActionIds],

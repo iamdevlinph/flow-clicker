@@ -10,8 +10,6 @@ import {
 	moveItem,
 	nextDeadline,
 	normalizeEditorSize,
-	sameRecordedWindow,
-	sameWindowTarget,
 	ungroupAction,
 } from "./state-model.js";
 import type { Action, AppState, ClickAction, Flow } from "./types.js";
@@ -98,50 +96,13 @@ test("migrates v3 shared playback with selected, first, and default precedence i
 	expect(combined && "playback" in combined).toBe(false);
 });
 
-test("migrates v3 flows as unbound and preserves valid v4 targets", () => {
-	const target = {
-		executablePath: "C:\\App.exe",
-		className: "Main",
-		title: "A",
-	};
-	expect(
-		migrateState({ version: 3, flows: [{ id: "old", target }], settings: {} })
-			.flows[0].target,
-	).toBeNull();
-	expect(
-		migrateState({ version: 4, flows: [{ id: "new", target }], settings: {} })
-			.flows[0].target,
-	).toEqual(target);
-	expect(
-		migrateState({
-			version: 4,
-			flows: [{ id: "bad", target: { ...target, className: "" } }],
-			settings: {},
-		}).flows[0].target,
-	).toBeNull();
-});
-
-test("window signatures ignore title changes and combine only matching targets", () => {
-	const a = { executablePath: "C:\\App.exe", className: "Main", title: "A" };
-	const b = { executablePath: "c:\\app.exe", className: "main", title: "B" };
-	expect(sameWindowTarget(a, b)).toBe(true);
-	expect(sameRecordedWindow(a, 10, b, 10)).toBe(true);
-	expect(sameRecordedWindow(a, 10, b, 11)).toBe(false);
-	expect(
-		combineFlows(
-			[
-				{ ...bareFlow("a", "A"), target: a },
-				{ ...bareFlow("b", "B"), target: b },
-			],
-			() => "combined",
-		)?.target,
-	).toEqual(a);
-	expect(
-		combineFlows(
-			[{ ...bareFlow("a", "A"), target: a }, bareFlow("b", "B")],
-			() => "combined",
-		)?.target,
-	).toBeNull();
+test("migrates v4 flows while discarding obsolete target metadata", () => {
+	const migrated = migrateState({
+		version: 4,
+		flows: [{ id: "new", target: { executablePath: "C:\\App.exe" } }],
+		settings: {},
+	} as unknown as PersistedInput);
+	expect("target" in migrated.flows[0]).toBe(false);
 });
 
 test("preserves combined-flow provenance and normalizes malformed actions", () => {
