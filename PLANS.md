@@ -118,6 +118,14 @@ cancelled startup. Stop and the configured recording hotkey continue to keep
 recorded actions. Automated frontend and Rust checks cover the cancellation
 paths; physical input and rendered desktop comparison were not exercised.
 
+Layered-Escape evidence (2026-09-02): Escape in the editor cancels an active or
+starting recording first, then dismisses an open click map, dialog, or Actions
+menu on subsequent presses, and returns an idle editor to Flows through the
+existing Back path with flow-card focus restoration, including while a click
+name has focus. Escape outside the editor retains its existing dismissal
+behavior. Frontend checks cover the ordering; rendered comparison remains
+unavailable without desktop screenshot tooling.
+
 Strict-window playback evidence (2026-09-02): schema-version-4 flows persist a
 Windows executable/class/title target while accepting schema-version-3 data as
 unbound. Recording replacement clears and safely replaces the target; imports
@@ -256,7 +264,8 @@ pending, so the result remains **NOT RUN** and no successor-app work may start.
 - The main window stays fixed at 460×720; editing opens a compact Flows subview
   whose renderer sends narrow edit/transport intents to the main controller.
 - Settings and closed-editor states use a compact window.
-- Escape dismisses the overlay; Alt+F4 exits the application.
+- Escape dismisses the editor's active recording, overlay, dialog, or menu layer
+  before an idle editor returns to Flows; Alt+F4 exits the application.
 - The overlay is a separate OS window in the same process.
 - Flow-group collapse is persisted as `collapsed` on each schema-version-3
   group; search is a temporary visual override and does not rewrite that

@@ -10,6 +10,7 @@ import {
 } from "./data-transfer.js";
 import { bindDurationInput } from "./duration-input.js";
 import { bindEditorView, mountEditorView, renderEditorView } from "./editor.js";
+import { escapeAction } from "./escape-layer.js";
 import { renderFlowLibrary } from "./flow-library.js";
 import { normalizeFlowSelection, removeFlow } from "./flow-lifecycle.js";
 import { moveFlow, moveFlowByKey } from "./flow-ordering.js";
@@ -1324,13 +1325,22 @@ type HotkeyCapture = {
 				return;
 			}
 			if (event.key !== "Escape") return;
-			if (recordingSessionState.active || recordingSessionState.starting) {
+			const action = escapeAction(
+				recordingSessionState.active || recordingSessionState.starting,
+				mapVisible,
+				Boolean(modal || !$("libraryMenu").classList.contains("hidden")),
+				editorOpen,
+			);
+			if (action === "cancel-recording") {
 				void cancelRecording();
+				return;
+			}
+			if (action === "hide-overlay") {
+				void hideOverlay();
 				return;
 			}
 			closeLibraryMenu();
 			closeSettingsModal();
-			hideOverlay();
 			closeCombineModal();
 			closeImportModal();
 			closeDialog("groupModal");
@@ -1338,6 +1348,7 @@ type HotkeyCapture = {
 			closeDialog("deleteFlowModal");
 			closeDialog("portableImportModal");
 			closeDialog("portableConfirmModal");
+			if (action === "close-editor") void closeEditor();
 		});
 		$("flowSearch").addEventListener("input", renderFlowList);
 		["playbackSpeed", "repeatValue", "settleMs", "holdMs", "untilTime"].forEach(

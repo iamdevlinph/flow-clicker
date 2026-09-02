@@ -20,6 +20,7 @@ const child = <T extends Element>(
 ): T | null => root.querySelector<T>(selector);
 
 export function keepActionNameKeyInsideInput(event: KeyboardEvent): void {
+	if (event.key === "Escape") return;
 	event.stopPropagation();
 	if (
 		event.key !== " " ||

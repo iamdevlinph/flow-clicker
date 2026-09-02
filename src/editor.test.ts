@@ -38,7 +38,7 @@ const keydown = (
 describe("click-name keyboard handling", () => {
 	test("replaces the selection with a space and keeps the key inside the input", () => {
 		const input = {
-			dataset: {},
+			dataset: {} as Record<string, string>,
 			value: "firstclick",
 			selectionStart: 5,
 			selectionEnd: 10,
@@ -58,9 +58,9 @@ describe("click-name keyboard handling", () => {
 		expect(input.dataset.manualChange).toBe("true");
 	});
 
-	test("leaves ordinary, modified, and composing keys to the input", () => {
+	test("contains ordinary keys but lets Escape bubble from the click name", () => {
 		const input = {
-			dataset: {},
+			dataset: {} as Record<string, string>,
 			value: "click",
 			selectionStart: 0,
 			selectionEnd: 5,
@@ -76,6 +76,9 @@ describe("click-name keyboard handling", () => {
 			expect(event.stopPropagation).toHaveBeenCalledOnce();
 			expect(event.preventDefault).not.toHaveBeenCalled();
 		}
+		const escapeEvent = keydown(input, { key: "Escape" });
+		expect(escapeEvent.stopPropagation).not.toHaveBeenCalled();
+		expect(escapeEvent.preventDefault).not.toHaveBeenCalled();
 		expect(input.setRangeText).not.toHaveBeenCalled();
 		expect(input.dataset.manualChange).toBeUndefined();
 	});
