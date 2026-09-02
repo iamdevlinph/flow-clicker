@@ -1,6 +1,6 @@
 [package]
 name = "flowclicker"
-version = "1.12.0"
+version = "1.12.1"
 description = "Cross-platform physical mouse flow recorder and player"
 authors = ["FlowClicker contributors"]
 edition = "2021"

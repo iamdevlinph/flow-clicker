@@ -100,5 +100,6 @@ jobs:
     steps:
       - name: Publish complete release
         run: |
-          release_id=$(gh api "repos/${{ github.repository }}/releases/tags/v$VERSION" --jq .id)
+          release_id=$(gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" --jq ".[] | select(.draft and .tag_name == \"v$VERSION\") | .id" | head -1)
+          test -n "$release_id" || { echo "Draft release v$VERSION not found" >&2; exit 1; }
           gh api --method PATCH "repos/${{ github.repository }}/releases/$release_id" -F draft=false -f make_latest=legacy
