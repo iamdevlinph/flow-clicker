@@ -1,0 +1,104 @@
+name: Release portable builds
+
+on:
+  push:
+    branches: [main]
+    paths: [src-tauri/Cargo.toml]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Confirm version bump
+        id: version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version = "\([0-9.]*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          previous=$(git show '${{ github.event.before }}:src-tauri/Cargo.toml' | sed -n 's/^version = "\([0-9.]*\)"/\1/p' | head -1)
+          test -n "$version" && test "$version" != "$previous"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: python3 .agents/skills/flowclicker-version/scripts/bump_version.py none
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm check
+
+  build:
+    needs: validate
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            args: --no-bundle
+            plain_binary: true
+          - runner: ubuntu-22.04
+            args: --bundles appimage
+            plain_binary: false
+          - runner: macos-latest
+            args: --target aarch64-apple-darwin --bundles app
+            plain_binary: false
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.runner == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
+      - name: Install Linux dependencies
+        if: matrix.runner == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libx11-dev libxdo-dev libxi-dev libxkbcommon-dev libxrandr-dev libxtst-dev patchelf
+      - uses: tauri-apps/tauri-action@v1.0.0
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ matrix.runner == 'macos-latest' && '-' || '' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: FlowClicker v__VERSION__
+          releaseBody: Portable FlowClicker downloads for Windows, Linux, and Apple Silicon macOS.
+          releaseCommitish: ${{ github.sha }}
+          releaseDraft: true
+          prerelease: false
+          uploadPlainBinary: ${{ matrix.plain_binary }}
+          uploadUpdaterJson: false
+          uploadUpdaterSignatures: false
+          args: ${{ matrix.args }}
+
+  publish:
+    needs: [validate, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - name: Publish complete release
+        run: |
+          release_id=$(gh api "repos/${{ github.repository }}/releases/tags/v$VERSION" --jq .id)
+          gh api --method PATCH "repos/${{ github.repository }}/releases/$release_id" -F draft=false -f make_latest=legacy

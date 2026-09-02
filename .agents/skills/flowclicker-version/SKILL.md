@@ -19,3 +19,7 @@ python3 .agents/skills/flowclicker-version/scripts/bump_version.py <major|minor|
 ```
 
 The script derives the target from the version committed at `HEAD`, updates only `src-tauri/Cargo.toml` and FlowClicker's root `src-tauri/Cargo.lock` entry, and refuses unrelated working version edits. It is idempotent before commit. Never stage, commit, or tag.
+
+The skill changes version files only. After the user commits and pushes the
+version bump to `main`, GitHub Actions owns release tag creation and publishing;
+never commit, tag, push, or publish from this skill.

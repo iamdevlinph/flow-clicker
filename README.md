@@ -1,6 +1,21 @@
-# FlowClicker Tauri v1.0.0
+# FlowClicker
 
 FlowClicker has been redesigned as a cross-platform Tauri desktop app that records click-only flows and replays them using the **physical OS mouse**. Browser background-tab clicking is intentionally out of scope for this version.
+
+## Download a portable release
+
+Each [GitHub release](https://github.com/iamdevlinph/flow-clicker/releases/latest)
+provides a Windows x64 executable, a Linux x64 AppImage, and an Apple Silicon
+macOS app archive. No installer is required.
+
+- Windows: download `flowclicker.exe` and run it. Windows may show an
+  unknown-publisher warning because the executable is not code-signed.
+- Linux: download `FlowClicker_<version>_amd64.AppImage`, make it executable
+  with `chmod +x`, and run it from an X11 session.
+- macOS: extract `FlowClicker_<version>_aarch64.app.tar.gz`, move the app to
+  Applications, and open it. The build is ad-hoc signed rather than notarized,
+  so macOS may require approval in Privacy & Security. Accessibility permission
+  is required for recording, playback, and global hotkeys.
 
 ## What is included
 

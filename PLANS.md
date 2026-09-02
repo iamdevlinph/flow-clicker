@@ -258,6 +258,11 @@ pending, so the result remains **NOT RUN** and no successor-app work may start.
 ## Decision log
 
 - The card right-click menu owns Edit, Duplicate, and Delete.
+- Version bumps pushed to `main` publish draft-first portable GitHub releases
+  for Windows x64, Linux x64, and Apple Silicon macOS. GitHub Actions owns tag
+  creation and only publishes after all three builds succeed.
+- First live-run verification remains pending for the `v1.12.0` tag, expected
+  assets and architectures, and draft retention after a failed matrix build.
 - Card dragging remains the manual ordering mechanism.
 - The card gear opens a full playback-settings modal.
 - **Actions → Combine Flows** opens a modal.
