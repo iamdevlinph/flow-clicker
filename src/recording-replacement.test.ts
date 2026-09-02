@@ -25,6 +25,7 @@ test("replacement clears actions while retaining a rollback snapshot", () => {
 	expect(value.target).toBeNull();
 	const selection = restoreRecordingReplacement(value, snapshot);
 	expect(value.actions[0].id).toBe("delay");
+	expect(value.actions).not.toBe(snapshot.actions);
 	expect(value.updatedAt).toBe("before");
 	expect(value.target).toEqual({
 		executablePath: "C:\\App.exe",
@@ -48,6 +49,7 @@ test("rollback restores independent action data and multi-selection", () => {
 
 	const selection = restoreRecordingReplacement(value, snapshot);
 	expect(value.actions).toEqual(snapshot.actions);
+	expect(value.actions).not.toBe(snapshot.actions);
 	expect(value.updatedAt).toBe("before");
 	expect(selection.selectedActionIds).toEqual(["delay", "other"]);
 });

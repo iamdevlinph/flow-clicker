@@ -40,6 +40,16 @@ import {
 	restoreRecordingReplacement,
 } from "./recording-replacement.js";
 import {
+	acceptsRecordedClick,
+	activateRecording,
+	beginRecordingAttempt,
+	cancelRecordingSession,
+	idleRecordingSession,
+	isCurrentRecordingAttempt,
+	retainRecordingSnapshot,
+	stopRecordingSession,
+} from "./recording-session.js";
+import {
 	actionClickCount,
 	combineFlows,
 	migrateState as migratePersistedState,
@@ -108,7 +118,7 @@ type HotkeyCapture = {
 	let combineQueue: string[] = [];
 	let selectedActionId: string | null = null;
 	let selectedActionIds: Set<string> = new Set();
-	let recording = false;
+	let recordingSessionState = idleRecordingSession();
 	let playing = false;
 	let runningFlowId: string | null = null;
 	let mapVisible = false;
@@ -364,7 +374,7 @@ type HotkeyCapture = {
 					flow,
 					selectedActionId,
 					selectedActionIds: [...selectedActionIds],
-					recording,
+					recording: recordingSessionState.active,
 					playing,
 					mapVisible,
 				})
@@ -678,7 +688,7 @@ type HotkeyCapture = {
 		if (!flow) return closeDialog("deleteFlowModal");
 		deleteInProgress = true;
 		try {
-			if (recording) await stopRecording();
+			if (recordingSessionState.active) await stopRecording();
 			state = removeFlow(state, flow.id);
 			combineQueue = combineQueue.filter((id) => id !== flow.id);
 			importSelection = new Set();
@@ -749,26 +759,45 @@ type HotkeyCapture = {
 				"The browser preview only demonstrates the UI.",
 				"error",
 			);
+		if (recordingSessionState.active || recordingSessionState.starting) return;
+		recordingSessionState = beginRecordingAttempt(
+			recordingSessionState,
+			currentFlow()?.id || null,
+		);
+		const token = recordingSessionState.token;
 		try {
 			recordingWindowHandle = null;
 			await hideOverlay();
+			if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
 			await invoke("start_recording");
-			const flow = currentFlow();
+			if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
+			const flow = recordingSessionState.flowId
+				? state.flows.find(
+						(candidate) => candidate.id === recordingSessionState.flowId,
+					)
+				: null;
 			if (flow) {
 				const snapshot = beginRecordingReplacement(flow, {
 					selectedActionId,
 					selectedActionIds: [...selectedActionIds],
 				});
+				recordingSessionState = retainRecordingSnapshot(
+					recordingSessionState,
+					snapshot,
+				);
 				selectedActionId = null;
 				selectedActionIds = new Set();
 				touchFlow(flow);
-				if (!(await saveState())) {
+				const saved = await saveState();
+				if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
+				if (!saved) {
 					try {
 						await invoke("stop_recording");
 					} catch (_) {}
 					const selection = restoreRecordingReplacement(flow, snapshot);
 					selectedActionId = selection.selectedActionId;
 					selectedActionIds = new Set(selection.selectedActionIds);
+					recordingSessionState = stopRecordingSession(recordingSessionState);
 					renderAll();
 					toast(
 						"Could not save recording",
@@ -778,15 +807,20 @@ type HotkeyCapture = {
 					return;
 				}
 			}
-			recording = true;
+			if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
+			recordingSessionState = activateRecording(recordingSessionState);
 			await setActivityBadge(invoke, "recording");
+			if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
 			publishEditorSnapshot();
 			setStatus("Recording", "recording");
 			toast(
 				"Recording started",
-				`Use ${state.settings.recordHotkey} to stop without returning to FlowClicker.`,
+				`Use ${state.settings.recordHotkey} to stop and keep this recording. Press Escape to cancel and restore the previous actions.`,
 			);
 		} catch (err) {
+			if (!isCurrentRecordingAttempt(recordingSessionState, token)) return;
+			recordingSessionState = idleRecordingSession();
+			recordingSessionState.token = token;
 			recordingWindowHandle = null;
 			setStatus("Idle");
 			toast("Could not start recording", String(err), "error");
@@ -794,8 +828,10 @@ type HotkeyCapture = {
 	}
 
 	async function stopRecording() {
+		const flow = currentFlow();
+		recordingSessionState = stopRecordingSession(recordingSessionState);
+		recordingWindowHandle = null;
 		if (!nativeAvailable) {
-			recording = false;
 			publishEditorSnapshot();
 			setStatus("Idle");
 			return;
@@ -803,15 +839,37 @@ type HotkeyCapture = {
 		try {
 			await invoke("stop_recording");
 		} catch (_) {}
-		recording = false;
-		recordingWindowHandle = null;
 		await setActivityBadge(invoke, "idle");
 		publishEditorSnapshot();
 		setStatus("Idle");
 		toast(
 			"Recording stopped",
-			`${currentFlow()?.actions.length || 0} actions in the current flow.`,
+			`${flow?.actions.length || 0} actions in the current flow.`,
 		);
+	}
+
+	async function cancelRecording(): Promise<void> {
+		const cancelled = cancelRecordingSession(recordingSessionState);
+		if (!cancelled.changed) return;
+		const session = recordingSessionState;
+		const flow = session.flowId
+			? state.flows.find((candidate) => candidate.id === session.flowId)
+			: null;
+		recordingSessionState = cancelled.state;
+		recordingWindowHandle = null;
+		try {
+			if (nativeAvailable) await invoke("stop_recording");
+		} catch (_) {}
+		if (flow && session.snapshot) {
+			const selection = restoreRecordingReplacement(flow, session.snapshot);
+			selectedActionId = selection.selectedActionId;
+			selectedActionIds = new Set(selection.selectedActionIds);
+			await saveState();
+		}
+		await setActivityBadge(invoke, "idle");
+		publishEditorSnapshot();
+		setStatus("Idle");
+		toast("Recording cancelled");
 	}
 
 	async function runFlow(flow = currentFlow()) {
@@ -1027,7 +1085,7 @@ type HotkeyCapture = {
 	}
 
 	function openPortableImport(): void {
-		if (recording || playing) {
+		if (recordingSessionState.active || playing) {
 			toast(
 				"Import unavailable",
 				"Stop recording or playback before replacing the library.",
@@ -1043,7 +1101,7 @@ type HotkeyCapture = {
 	function stagePortableImport(
 		json: string = $("portableImportText").value,
 	): void {
-		if (recording || playing) {
+		if (recordingSessionState.active || playing) {
 			toast(
 				"Import unavailable",
 				"Stop recording or playback before replacing the library.",
@@ -1069,7 +1127,7 @@ type HotkeyCapture = {
 	}
 
 	async function confirmPortableImport() {
-		if (!pendingPortableData || recording || playing)
+		if (!pendingPortableData || recordingSessionState.active || playing)
 			return closeDialog("portableConfirmModal");
 		const overlayWasVisible = mapVisible;
 		await hideOverlay();
@@ -1266,6 +1324,10 @@ type HotkeyCapture = {
 				return;
 			}
 			if (event.key !== "Escape") return;
+			if (recordingSessionState.active || recordingSessionState.starting) {
+				void cancelRecording();
+				return;
+			}
 			closeLibraryMenu();
 			closeSettingsModal();
 			hideOverlay();
@@ -1484,9 +1546,14 @@ type HotkeyCapture = {
 	async function bindTauriEvents() {
 		if (!listen) return;
 		await listen("overlay-dismiss-requested", () => hideOverlay());
+		await listen("recording-cancel-requested", () => cancelRecording());
 		await listen("recorded-click", (event) => {
-			const flow = currentFlow();
-			if (!flow) return;
+			const flow = recordingSessionState.flowId
+				? state.flows.find(
+						(candidate) => candidate.id === recordingSessionState.flowId,
+					)
+				: null;
+			if (!acceptsRecordedClick(recordingSessionState) || !flow) return;
 			const c = event.payload;
 			if (
 				typeof c.screenX !== "number" ||
@@ -1540,7 +1607,9 @@ type HotkeyCapture = {
 		});
 		await listen("hotkey-record", () => {
 			if (!capturingHotkey)
-				return recording ? stopRecording() : startRecording();
+				return recordingSessionState.active || recordingSessionState.starting
+					? stopRecording()
+					: startRecording();
 		});
 		await listen("hotkey-play", () => {
 			if (!capturingHotkey) return playing ? stopPlayback() : runFlow();

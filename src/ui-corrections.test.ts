@@ -295,7 +295,7 @@ test("runtime banner reserves space and uses accessible idle, recording, and pla
 		app,
 		/setStatus\([\s\S]*playbackStatus\([\s\S]*\),\s*"playing",?\s*\);/,
 	);
-	expectAssert.equal((app.match(/setStatus\("Idle"\)/g) || []).length, 8);
+	expectAssert.equal((app.match(/setStatus\("Idle"\)/g) || []).length, 9);
 });
 
 test("duration Stop persists only an active, unchanged duration", () => {

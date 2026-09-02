@@ -110,6 +110,14 @@ existing accessible 32×32 icon-button pattern. Focused frontend tests, frontend
 build and type checks, Rust formatting, and 16 Rust tests pass. Physical input
 and rendered desktop comparison were not exercised.
 
+Recording-cancellation evidence (2026-09-02): pressing Escape in FlowClicker or
+through the global recorder cancels recording once, rejects delayed clicks,
+restores and persists the selected flow's pre-recording actions, target,
+timestamp, and action selection, and cannot reactivate an asynchronously
+cancelled startup. Stop and the configured recording hotkey continue to keep
+recorded actions. Automated frontend and Rust checks cover the cancellation
+paths; physical input and rendered desktop comparison were not exercised.
+
 Strict-window playback evidence (2026-09-02): schema-version-4 flows persist a
 Windows executable/class/title target while accepting schema-version-3 data as
 unbound. Recording replacement clears and safely replaces the target; imports

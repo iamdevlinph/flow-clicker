@@ -44,10 +44,12 @@ struct Latches {
 
 pub struct RuntimeState {
     pub recording: AtomicBool,
+    pub recording_starting: AtomicBool,
     pub playing: AtomicBool,
     pub stop_playback: AtomicBool,
     cursor: Mutex<(f64, f64)>,
     timing: Mutex<RecordTiming>,
+    recording_gate: Mutex<()>,
     hotkeys: Mutex<Hotkeys>,
     pressed: Mutex<HashSet<String>>,
     latches: Mutex<Latches>,
@@ -58,10 +60,12 @@ impl Default for RuntimeState {
     fn default() -> Self {
         Self {
             recording: AtomicBool::new(false),
+            recording_starting: AtomicBool::new(false),
             playing: AtomicBool::new(false),
             stop_playback: AtomicBool::new(false),
             cursor: Mutex::new((0.0, 0.0)),
             timing: Mutex::new(RecordTiming::default()),
+            recording_gate: Mutex::new(()),
             hotkeys: Mutex::new(Hotkeys::default()),
             pressed: Mutex::new(HashSet::new()),
             latches: Mutex::new(Latches::default()),
@@ -150,7 +154,31 @@ fn matches_hotkey(spec: &str, pressed: &HashSet<String>) -> bool {
     !wanted.is_empty() && wanted.iter().all(|k| pressed.contains(k))
 }
 
+fn cancel_on_escape(runtime: &RuntimeState, key: Key, down: bool) -> bool {
+    if !down || key != Key::Escape {
+        return false;
+    }
+    let _gate = runtime.recording_gate.lock().unwrap();
+    let was_recording = runtime.recording.swap(false, Ordering::SeqCst);
+    let was_starting = runtime.recording_starting.swap(false, Ordering::SeqCst);
+    was_recording || was_starting
+}
+
+fn finish_recording_start(runtime: &RuntimeState) -> Result<(), String> {
+    let _gate = runtime.recording_gate.lock().unwrap();
+    runtime.recording.store(true, Ordering::SeqCst);
+    if !runtime.recording_starting.swap(false, Ordering::SeqCst) {
+        runtime.recording.store(false, Ordering::SeqCst);
+        return Err("Recording was cancelled.".into());
+    }
+    Ok(())
+}
+
 fn handle_key(app: &AppHandle, runtime: &RuntimeState, key: Key, down: bool) {
+    if cancel_on_escape(runtime, key, down) {
+        let _ = app.emit("recording-cancel-requested", ());
+        return;
+    }
     let Some(token) = key_token(key) else {
         return;
     };
@@ -243,6 +271,13 @@ pub fn start_recording(runtime: &RuntimeState) -> Result<(), String> {
     if runtime.playing.load(Ordering::SeqCst) {
         return Err("Stop playback before recording.".into());
     }
+    let gate = runtime.recording_gate.lock().unwrap();
+    let already_active = runtime.recording.load(Ordering::SeqCst)
+        || runtime.recording_starting.swap(true, Ordering::SeqCst);
+    drop(gate);
+    if already_active {
+        return Err("Recording is already active.".into());
+    }
     if let Ok(enigo) = Enigo::new(&Settings::default()) {
         if let Ok((x, y)) = enigo.location() {
             *runtime.cursor.lock().unwrap() = (x as f64, y as f64);
@@ -253,14 +288,61 @@ pub fn start_recording(runtime: &RuntimeState) -> Result<(), String> {
         started: Some(now),
         last_click: None,
     };
-    runtime.recording.store(true, Ordering::SeqCst);
-    Ok(())
+    finish_recording_start(runtime)
 }
 
 pub fn stop_recording(runtime: &RuntimeState) {
+    let _gate = runtime.recording_gate.lock().unwrap();
     runtime.recording.store(false, Ordering::SeqCst);
+    runtime.recording_starting.store(false, Ordering::SeqCst);
 }
 
 pub fn set_hotkeys(runtime: &RuntimeState, record: String, playback: String) {
     *runtime.hotkeys.lock().unwrap() = Hotkeys { record, playback };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_cancels_recording_once_on_key_press() {
+        let runtime = RuntimeState::default();
+        runtime.recording.store(true, Ordering::SeqCst);
+
+        assert!(cancel_on_escape(&runtime, Key::Escape, true));
+        assert!(!runtime.recording.load(Ordering::SeqCst));
+        assert!(!cancel_on_escape(&runtime, Key::Escape, true));
+        assert!(!cancel_on_escape(&runtime, Key::Escape, false));
+        assert!(!cancel_on_escape(&runtime, Key::Return, true));
+    }
+
+    #[test]
+    fn escape_cancels_recording_startup_once() {
+        let runtime = RuntimeState::default();
+        runtime.recording_starting.store(true, Ordering::SeqCst);
+
+        assert!(cancel_on_escape(&runtime, Key::Escape, true));
+        assert!(!runtime.recording_starting.load(Ordering::SeqCst));
+        assert!(!cancel_on_escape(&runtime, Key::Escape, true));
+    }
+
+    #[test]
+    fn cancelled_startup_cannot_activate_recording() {
+        let runtime = RuntimeState::default();
+        assert!(finish_recording_start(&runtime).is_err());
+        assert!(!runtime.recording.load(Ordering::SeqCst));
+
+        runtime.recording_starting.store(true, Ordering::SeqCst);
+        assert!(finish_recording_start(&runtime).is_ok());
+        assert!(runtime.recording.load(Ordering::SeqCst));
+
+        assert!(cancel_on_escape(&runtime, Key::Escape, true));
+        assert!(!runtime.recording.load(Ordering::SeqCst));
+
+        runtime.recording_starting.store(true, Ordering::SeqCst);
+        assert!(cancel_on_escape(&runtime, Key::Escape, true));
+        assert!(finish_recording_start(&runtime).is_err());
+        assert!(!runtime.recording.load(Ordering::SeqCst));
+    }
 }

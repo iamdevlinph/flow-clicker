@@ -30,7 +30,7 @@ export function restoreRecordingReplacement(
 	flow: Flow,
 	snapshot: RecordingSnapshot,
 ): RecordingSelection {
-	flow.actions = snapshot.actions;
+	flow.actions = structuredClone(snapshot.actions);
 	flow.updatedAt = snapshot.updatedAt;
 	flow.target = structuredClone(snapshot.target);
 	return {

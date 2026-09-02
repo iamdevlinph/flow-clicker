@@ -281,9 +281,7 @@ fn main() {
                         return;
                     }
                     api.prevent_close();
-                    runtime
-                        .recording
-                        .store(false, std::sync::atomic::Ordering::SeqCst);
+                    input::stop_recording(runtime.as_ref());
                     runtime
                         .stop_playback
                         .store(true, std::sync::atomic::Ordering::SeqCst);
