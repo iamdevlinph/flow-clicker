@@ -103,7 +103,6 @@ body.editor-view .editor-panel {
 }
 .action-card-summary {
 	min-width: 0;
-	cursor: pointer;
 	list-style: none;
 }
 .action-card-summary::-webkit-details-marker {
@@ -116,12 +115,13 @@ body.editor-view .editor-panel {
 	align-items: center;
 	min-width: 0;
 }
-.action-card-summary-content::after {
-	content: "▸";
+.action-card-chevron {
 	color: var(--muted);
+	cursor: pointer;
+	display: inline-block;
 }
-.action-card-accordion[open] .action-card-summary-content::after {
-	content: "▾";
+.action-card-accordion[open] .action-card-chevron {
+	transform: rotate(90deg);
 }
 .action-number {
 	color: var(--muted);

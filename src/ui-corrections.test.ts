@@ -743,7 +743,15 @@ test("editor is an in-window vertically scrolling card view", () => {
 	);
 	expectAssert.match(
 		editor,
-		/name\?\.addEventListener\("keydown", \(event\) => event\.stopPropagation\(\)\)/,
+		/name\?\.addEventListener\("keydown", keepActionNameKeyInsideInput\)/,
+	);
+	expectAssert.match(
+		editor,
+		/action-card-summary"\)\?\.addEventListener\([\s\S]*"click"[\s\S]*keepAccordionToggleOnChevron/,
+	);
+	expectAssert.match(
+		editor,
+		/name\?\.addEventListener\("blur"[\s\S]*dataset\.manualChange[\s\S]*dispatchEvent\(new Event\("change"[\s\S]*delete name\.dataset\.manualChange[\s\S]*intent\?\.\("action-update"/,
 	);
 	expectAssert.match(
 		editor,
@@ -781,7 +789,7 @@ test("editor is an in-window vertically scrolling card view", () => {
 	);
 	expectAssert.match(
 		css,
-		/\.action-card-summary-content::after\s*\{[^}]*content:\s*"▸"[\s\S]*\.action-card-accordion\[open\] \.action-card-summary-content::after\s*\{[^}]*content:\s*"▾"/,
+		/\.action-card-chevron\s*\{[^}]*cursor:\s*pointer[\s\S]*\.action-card-accordion\[open\] \.action-card-chevron\s*\{[^}]*transform:\s*rotate\(90deg\)/,
 	);
 	expectAssert.match(
 		css,

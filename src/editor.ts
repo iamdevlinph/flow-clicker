@@ -19,6 +19,36 @@ const child = <T extends Element>(
 	selector: string,
 ): T | null => root.querySelector<T>(selector);
 
+export function keepActionNameKeyInsideInput(event: KeyboardEvent): void {
+	event.stopPropagation();
+	if (
+		event.key !== " " ||
+		event.isComposing ||
+		event.altKey ||
+		event.ctrlKey ||
+		event.metaKey ||
+		event.shiftKey
+	)
+		return;
+	event.preventDefault();
+	const input = event.currentTarget as HTMLInputElement;
+	input.setRangeText(
+		" ",
+		input.selectionStart ?? input.value.length,
+		input.selectionEnd ?? input.value.length,
+		"end",
+	);
+	input.dataset.manualChange = "true";
+}
+
+export function keepAccordionToggleOnChevron(event: MouseEvent): void {
+	if (
+		event.detail !== 0 &&
+		!(event.target as Element).closest(".action-card-chevron")
+	)
+		event.preventDefault();
+}
+
 export function renderEditorView(next: EditorSnapshot | null): void {
 	snapshot = next;
 	if (!snapshot) return;
@@ -83,6 +113,10 @@ export function renderEditorView(next: EditorSnapshot | null): void {
 	rows.querySelectorAll<HTMLElement>(".action-card").forEach((card) => {
 		const id = card.dataset.id;
 		if (!id) return;
+		child<HTMLElement>(card, ".action-card-summary")?.addEventListener(
+			"click",
+			keepAccordionToggleOnChevron,
+		);
 		card.addEventListener("click", (event) => {
 			if (
 				(event.target as Element).closest(
@@ -95,7 +129,7 @@ export function renderEditorView(next: EditorSnapshot | null): void {
 		});
 		const name = child<HTMLInputElement>(card, ".action-name");
 		name?.addEventListener("click", (event) => event.stopPropagation());
-		name?.addEventListener("keydown", (event) => event.stopPropagation());
+		name?.addEventListener("keydown", keepActionNameKeyInsideInput);
 		name?.addEventListener("focus", () => {
 			if (beginNameFocus(selected, id, name)) {
 				selected = new Set([id]);
@@ -103,13 +137,18 @@ export function renderEditorView(next: EditorSnapshot | null): void {
 				intent?.("select-action", { actionId: id, multi: false });
 			}
 		});
-		name?.addEventListener("change", () =>
+		name?.addEventListener("blur", () => {
+			if (name.dataset.manualChange)
+				name.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		name?.addEventListener("change", () => {
+			delete name.dataset.manualChange;
 			intent?.("action-update", {
 				actionId: id,
 				field: "name",
 				value: name.value,
-			}),
-		);
+			});
+		});
 		for (const [selector, field] of [
 			[".action-delay", "delayMs"],
 			[".coord-x", "screenX"],
