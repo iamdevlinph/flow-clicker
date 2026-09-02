@@ -1,4 +1,4 @@
-const VERSION = 3;
+const VERSION = 4;
 
 import type { AppState, Flow, LibraryGroup } from "./types.js";
 
@@ -15,7 +15,7 @@ const i32 = (value: unknown): value is number =>
 	Number.isInteger(value) &&
 	value >= -2147483648 &&
 	value <= 2147483647;
-type PortableData = { version: 3; flows: Flow[]; groups: LibraryGroup[] };
+type PortableData = { version: 4; flows: Flow[]; groups: LibraryGroup[] };
 
 function validateAction(
 	action: Record<string, unknown>,
@@ -86,7 +86,7 @@ function validateAction(
 function validatePortable(value: unknown): PortableData {
 	if (
 		!isObject(value) ||
-		value.version !== VERSION ||
+		(value.version !== VERSION && value.version !== 3) ||
 		!Array.isArray(value.flows) ||
 		!Array.isArray(value.groups) ||
 		!own(value, ["version", "flows", "groups"])
@@ -125,6 +125,7 @@ function validatePortable(value: unknown): PortableData {
 				"createdAt",
 				"updatedAt",
 				"combinedFrom",
+				"target",
 			]) ||
 			!isId(flow.id) ||
 			ids.has(flow.id) ||
@@ -142,7 +143,14 @@ function validatePortable(value: unknown): PortableData {
 							!own(source, ["id", "name"]) ||
 							!isId(source.id) ||
 							!isId(source.name),
-					)))
+					))) ||
+			(flow.target !== undefined &&
+				flow.target !== null &&
+				(!isObject(flow.target) ||
+					!own(flow.target, ["executablePath", "className", "title"]) ||
+					!isId(flow.target.executablePath) ||
+					!isId(flow.target.className) ||
+					typeof flow.target.title !== "string"))
 		)
 			throw new Error("Invalid flow");
 		ids.add(flow.id);
@@ -151,7 +159,12 @@ function validatePortable(value: unknown): PortableData {
 			validateAction(actionValue, ids);
 		});
 	});
-	return structuredClone(value) as PortableData;
+	const copy = structuredClone(value) as PortableData;
+	if (value.version === 3)
+		copy.flows.forEach((flow) => {
+			flow.target = null;
+		});
+	return { ...copy, version: VERSION };
 }
 
 export function exportPortableData(state: AppState | null | undefined): string {

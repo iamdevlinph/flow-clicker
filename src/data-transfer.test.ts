@@ -18,7 +18,7 @@ const click = (id = "a"): ClickAction => ({
 	delayMs: 3,
 });
 const state = (): AppState => ({
-	version: 3,
+	version: 4,
 	editorSize: { width: 800, height: 600 },
 	selectedFlowId: "old",
 	settings: {
@@ -81,6 +81,21 @@ test("round-trip import preserves local settings and selects first flow", () => 
 	expect(imported.editorSize).toEqual(source.editorSize);
 	imported.flows[0].name = "new";
 	expect(source.flows[0].name).toBe("Flow");
+});
+
+test("round-trips v4 targets and imports v3 flows as unbound", () => {
+	const source = state();
+	source.flows[0].target = {
+		executablePath: "C:\\App.exe",
+		className: "Main",
+		title: "A",
+	};
+	expect(parsePortableData(exportPortableData(source)).flows[0].target).toEqual(
+		source.flows[0].target,
+	);
+	const legacy = JSON.parse(exportPortableData(source));
+	legacy.version = 3;
+	expect(parsePortableData(JSON.stringify(legacy)).flows[0].target).toBeNull();
 });
 
 test("empty libraries import with no selection", () => {

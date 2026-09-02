@@ -1,4 +1,9 @@
 export type ActionButton = "left" | "right";
+export type WindowTarget = {
+	executablePath: string;
+	className: string;
+	title: string;
+};
 export type ClickAction = {
 	type: "click";
 	id: string;
@@ -46,6 +51,7 @@ export type Flow = {
 	updatedAt?: string;
 	combinedFrom?: Array<{ id: string; name: string }>;
 	playback?: Playback;
+	target?: WindowTarget | null;
 };
 export type LibraryGroup = { id: string; name: string; collapsed: boolean };
 export type AppSettings = {
@@ -55,7 +61,7 @@ export type AppSettings = {
 };
 export type EditorSize = { width: number; height: number } | null;
 export type AppState = {
-	version: 3;
+	version: 4;
 	editorSize: EditorSize;
 	selectedFlowId: string | null;
 	settings: AppSettings;
@@ -83,6 +89,9 @@ export type NativePayload = {
 	relativeX?: number | null;
 	relativeY?: number | null;
 	windowTitle?: string | null;
+	executablePath?: string | null;
+	className?: string | null;
+	windowHandle?: number | null;
 	button?: "left" | "right";
 	delayMs?: number;
 	execution?: number;

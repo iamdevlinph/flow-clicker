@@ -6,6 +6,7 @@ import type {
 	Flow,
 	LibraryGroup,
 	Playback,
+	WindowTarget,
 } from "./types.js";
 
 type IdSource = (() => string) | string;
@@ -35,6 +36,41 @@ type PersistedStateInput = {
 };
 
 export { playbackDefaults };
+
+export const sameWindowTarget = (
+	a: WindowTarget | null | undefined,
+	b: WindowTarget | null | undefined,
+): boolean =>
+	!!a &&
+	!!b &&
+	a.executablePath.toLowerCase() === b.executablePath.toLowerCase() &&
+	a.className.toLowerCase() === b.className.toLowerCase();
+
+export const sameRecordedWindow = (
+	target: WindowTarget | null | undefined,
+	windowHandle: number | null,
+	candidate: WindowTarget,
+	candidateHandle: unknown,
+): candidateHandle is number =>
+	typeof candidateHandle === "number" &&
+	(!target || sameWindowTarget(target, candidate)) &&
+	(windowHandle === null || windowHandle === candidateHandle);
+
+const normalizeWindowTarget = (value: unknown): WindowTarget | null => {
+	if (!value || typeof value !== "object") return null;
+	const target = value as Partial<WindowTarget>;
+	return typeof target.executablePath === "string" &&
+		target.executablePath.length > 0 &&
+		typeof target.className === "string" &&
+		target.className.length > 0 &&
+		typeof target.title === "string"
+		? {
+				executablePath: target.executablePath,
+				className: target.className,
+				title: target.title,
+			}
+		: null;
+};
 
 export function normalizeEditorSize(
 	size: Partial<NonNullable<EditorSize>> | null | undefined,
@@ -181,6 +217,11 @@ export function combineFlows(
 			id,
 		),
 		groupId: sources[0].groupId ?? null,
+		target: sources.every((flow) =>
+			sameWindowTarget(flow.target, sources[0].target),
+		)
+			? structuredClone(sources[0].target)
+			: null,
 	};
 }
 
@@ -218,10 +259,11 @@ export function migrateState(input: PersistedStateInput = {}): AppState {
 			actions: (Array.isArray(flow.actions) ? flow.actions : []).map(
 				normalizeActionButton,
 			),
+			target: input.version === 3 ? null : normalizeWindowTarget(flow.target),
 		};
 	});
 	const migrated: AppState = {
-		version: 3,
+		version: 4,
 		editorSize: normalizeEditorSize(
 			state.editorSize as Partial<NonNullable<EditorSize>> | null | undefined,
 		),

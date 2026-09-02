@@ -11,6 +11,7 @@ const flow = (): Flow => ({
 	actions: [{ type: "delay", id: "delay", name: "Delay", delayMs: 40 }],
 	groupId: null,
 	updatedAt: "before",
+	target: { executablePath: "C:\\App.exe", className: "Main", title: "A" },
 });
 
 test("replacement clears actions while retaining a rollback snapshot", () => {
@@ -21,9 +22,15 @@ test("replacement clears actions while retaining a rollback snapshot", () => {
 	});
 
 	expect(value.actions).toEqual([]);
+	expect(value.target).toBeNull();
 	const selection = restoreRecordingReplacement(value, snapshot);
 	expect(value.actions[0].id).toBe("delay");
 	expect(value.updatedAt).toBe("before");
+	expect(value.target).toEqual({
+		executablePath: "C:\\App.exe",
+		className: "Main",
+		title: "A",
+	});
 	expect(selection).toEqual({
 		selectedActionId: "delay",
 		selectedActionIds: ["delay"],

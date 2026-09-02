@@ -25,6 +25,9 @@ background-tab clicking.
   with the two preceding valid saves retained as `state.json.bak1` and
   `state.json.bak2` for transparent recovery.
 - Stop requests must halt physical playback promptly.
+- On Windows, each flow is bound to one executable/window-class target and
+  playback stops before clicking if that resolved window loses focus, closes,
+  is obscured, or cannot safely resolve relative coordinates.
 
 ## Status legend
 
@@ -106,6 +109,17 @@ normal cursor interaction and focus. The playback-settings gear reuses the
 existing accessible 32×32 icon-button pattern. Focused frontend tests, frontend
 build and type checks, Rust formatting, and 16 Rust tests pass. Physical input
 and rendered desktop comparison were not exercised.
+
+Strict-window playback evidence (2026-09-02): schema-version-4 flows persist a
+Windows executable/class/title target while accepting schema-version-3 data as
+unbound. Recording replacement clears and safely replaces the target; imports
+retain the destination target; combinations retain only a shared
+executable/class signature. Legacy flows bind after the existing status/toast
+countdown. Windows playback resolves one target handle, optionally focuses it
+once, and checks foreground ownership, relative bounds, occlusion, and window
+movement before every physical press without screen-coordinate fallback.
+Frontend type/build/tests, Rust tests, and Windows cross-compilation pass;
+rendered comparison and physical input were not exercised.
 
 Lifecycle/settings evidence (2026-08-24): empty-library normalization, deletion
 selection rules, and validated hotkey capture normalization are covered by
@@ -219,8 +233,6 @@ on macOS; Windows bridge compilation and the explicitly approved live proof are
 pending, so the result remains **NOT RUN** and no successor-app work may start.
 
 - Multi-monitor overlay selection and virtual-desktop coverage.
-- Stronger Windows matching using process executable and HWND metadata instead
-  of title text alone.
 - macOS window-relative tracking plus Accessibility permission-status UX.
 - Flow and action drag improvements not already implemented.
 - Remaining automated coverage for combine, import, repeat, and stop behavior.

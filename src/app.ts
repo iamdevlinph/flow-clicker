@@ -41,9 +41,11 @@ import {
 } from "./recording-replacement.js";
 import {
 	actionClickCount,
+	combineFlows,
 	migrateState as migratePersistedState,
 	nextDeadline,
 	normalizeEditorSize,
+	sameRecordedWindow,
 } from "./state-model.js";
 import type {
 	Action,
@@ -54,9 +56,11 @@ import type {
 	NativeInvoke,
 	NativePayload,
 	Playback,
+	WindowTarget,
 } from "./types.js";
+import { captureWindowTarget } from "./window-target.js";
 
-type PortableData = { version: 3; flows: Flow[]; groups: LibraryGroup[] };
+type PortableData = { version: 4; flows: Flow[]; groups: LibraryGroup[] };
 type ClickAction = Extract<Action, { type: "click" }>;
 type HotkeyId = "recordHotkey" | "playbackHotkey";
 type HotkeyCapture = {
@@ -88,7 +92,7 @@ type HotkeyCapture = {
 		document.getElementById(id) as TElement;
 
 	const defaults: AppState = {
-		version: 3,
+		version: 4,
 		editorSize: null,
 		selectedFlowId: null,
 		flows: [],
@@ -126,6 +130,8 @@ type HotkeyCapture = {
 	} | null = null;
 	let statusTimer: ReturnType<typeof setInterval> | null = null;
 	let pendingPortableData: PortableData | null = null;
+	let bindingCountdown: AbortController | null = null;
+	let recordingWindowHandle: number | null = null;
 
 	const uid = (): string =>
 		crypto.randomUUID
@@ -276,7 +282,7 @@ type HotkeyCapture = {
 		if (saveTimer) clearTimeout(saveTimer);
 		const json = JSON.stringify(
 			{
-				version: 3,
+				version: 4,
 				editorSize: normalizeEditorSize(targetState.editorSize),
 				selectedFlowId: targetState.selectedFlowId,
 				flows: targetState.flows,
@@ -744,6 +750,7 @@ type HotkeyCapture = {
 				"error",
 			);
 		try {
+			recordingWindowHandle = null;
 			await hideOverlay();
 			await invoke("start_recording");
 			const flow = currentFlow();
@@ -780,6 +787,7 @@ type HotkeyCapture = {
 				`Use ${state.settings.recordHotkey} to stop without returning to FlowClicker.`,
 			);
 		} catch (err) {
+			recordingWindowHandle = null;
 			setStatus("Idle");
 			toast("Could not start recording", String(err), "error");
 		}
@@ -796,6 +804,7 @@ type HotkeyCapture = {
 			await invoke("stop_recording");
 		} catch (_) {}
 		recording = false;
+		recordingWindowHandle = null;
 		await setActivityBadge(invoke, "idle");
 		publishEditorSnapshot();
 		setStatus("Idle");
@@ -806,6 +815,13 @@ type HotkeyCapture = {
 	}
 
 	async function runFlow(flow = currentFlow()) {
+		if (bindingCountdown) {
+			bindingCountdown.abort();
+			bindingCountdown = null;
+			setStatus("Idle");
+			toast("Binding cancelled", "Playback was not started.", "error");
+			return;
+		}
 		if (flow) {
 			state.selectedFlowId = flow.id;
 			scheduleSave();
@@ -822,6 +838,31 @@ type HotkeyCapture = {
 				"Build and run the FlowClicker desktop app to use native mouse input.",
 				"error",
 			);
+		if (!flow.target) {
+			const countdown = new AbortController();
+			bindingCountdown = countdown;
+			try {
+				const target = await captureWindowTarget(
+					invoke,
+					countdown.signal,
+					setStatus,
+				);
+				if (!target) return;
+				const previousTarget = flow.target;
+				flow.target = target;
+				touchFlow(flow);
+				if (!(await saveState())) {
+					flow.target = previousTarget;
+					throw new Error("Could not save the target window.");
+				}
+				renderAll();
+			} catch (err) {
+				setStatus("Idle");
+				return toast("Playback unavailable", String(err), "error");
+			} finally {
+				if (bindingCountdown === countdown) bindingCountdown = null;
+			}
+		}
 		const playback = flowPlayback();
 		runningFlowId = flow.id;
 		activePlayback = {
@@ -852,6 +893,7 @@ type HotkeyCapture = {
 			await invoke("play_flow", {
 				actionsJson: JSON.stringify(flow.actions),
 				optionsJson: JSON.stringify(options),
+				targetJson: JSON.stringify(flow.target ?? null),
 			});
 			publishEditorSnapshot();
 		} catch (err) {
@@ -1121,17 +1163,12 @@ type HotkeyCapture = {
 		const sources = selectedFlows(combineQueue, state.flows);
 		if (sources.length < 2) return closeCombineModal();
 		const name = $("combinedFlowName").value.trim() || "Combined flow";
-		const actions: Action[] = [];
-		sources.forEach((flow) => {
-			flow.actions.forEach((a) => {
-				actions.push(deepActionCopy(a, actions.length));
-			});
-		});
+		const combined = combineFlows(sources, uid);
+		if (!combined) return closeCombineModal();
+		const actions = combined.actions;
 		const flow = {
-			id: uid(),
+			...combined,
 			name,
-			actions,
-			groupId: sources[0].groupId ?? null,
 			createdAt: nowIso(),
 			updatedAt: nowIso(),
 			combinedFrom: sources.map((f) => ({ id: f.id, name: f.name })),
@@ -1457,6 +1494,33 @@ type HotkeyCapture = {
 				typeof c.delayMs !== "number"
 			)
 				return;
+			if (c.executablePath && c.className && c.windowTitle) {
+				const target: WindowTarget = {
+					executablePath: c.executablePath,
+					className: c.className,
+					title: c.windowTitle,
+				};
+				if (
+					!sameRecordedWindow(
+						flow.target,
+						recordingWindowHandle,
+						target,
+						c.windowHandle,
+					)
+				)
+					return toast(
+						"Click ignored",
+						"The click came from a different window.",
+						"error",
+					);
+				recordingWindowHandle ??= c.windowHandle;
+				if (!flow.target) flow.target = target;
+			} else
+				return toast(
+					"Click ignored",
+					"The target window could not be identified.",
+					"error",
+				);
 			const a: ClickAction = {
 				id: uid(),
 				type: "click",

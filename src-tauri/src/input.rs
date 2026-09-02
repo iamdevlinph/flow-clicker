@@ -190,13 +190,7 @@ fn handle_event(app: &AppHandle, runtime: &RuntimeState, event: Event) {
                 return;
             }
             let snap = platform::foreground();
-            if snap
-                .title
-                .as_deref()
-                .unwrap_or_default()
-                .to_lowercase()
-                .contains("flowclicker")
-            {
+            if platform::is_flowclicker_title(snap.title.as_deref()) {
                 return;
             }
             let (x, y) = *runtime.cursor.lock().unwrap();
@@ -222,6 +216,9 @@ fn handle_event(app: &AppHandle, runtime: &RuntimeState, event: Event) {
                 relative_x: rx,
                 relative_y: ry,
                 window_title: snap.title,
+                executable_path: snap.executable_path,
+                class_name: snap.class_name,
+                window_handle: snap.window_handle,
                 delay_ms: delay,
             };
             let _ = app.emit("recorded-click", click);
