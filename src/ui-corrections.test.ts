@@ -938,6 +938,7 @@ test("editor and overlay wire focus, dismissal, and primary click selection", ()
 		overlay,
 		/dismissOverlayOnEscape[\s\S]*"overlay-dismiss-requested"/,
 	);
+	expectAssert.match(overlay, /core\?\.invoke\?\.\("hide_overlay"\)/);
 	expectAssert.match(overlayCss, /\.marker\.selected \{/);
 	expectAssert.match(rust, /overlay\.show\(\)[\s\S]*overlay\.set_focus\(\)/);
 });

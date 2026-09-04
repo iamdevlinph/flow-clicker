@@ -1,3 +1,4 @@
+import { bindBrowserPocPanel } from "./browser-poc-panel.js";
 import {
 	selectedFlows,
 	selectionName,
@@ -62,6 +63,7 @@ import type {
 	AppState,
 	EditorSnapshot,
 	Flow,
+	FlowTarget,
 	LibraryGroup,
 	NativeInvoke,
 	NativePayload,
@@ -80,6 +82,12 @@ type HotkeyCapture = {
 
 (() => {
 	const T = window.__TAURI__ || null;
+	const target: FlowTarget =
+		window.__FLOWCLICKER_TARGET__ === "browser" ||
+		new URLSearchParams(location.search).get("target") === "browser"
+			? "browser"
+			: "desktop";
+	const browserMode = target === "browser";
 	const nativeAvailable = Boolean(T?.core?.invoke);
 	const invoke: NativeInvoke =
 		T?.core?.invoke ??
@@ -179,6 +187,7 @@ type HotkeyCapture = {
 			name,
 			actions: [],
 			groupId: null,
+			target,
 			createdAt: nowIso(),
 			updatedAt: nowIso(),
 		};
@@ -380,6 +389,8 @@ type HotkeyCapture = {
 	function publishEditorSnapshot(): void {
 		const snapshot = editorSnapshot();
 		renderEditorView(snapshot);
+		if (browserMode && document.getElementById("addClickBtn"))
+			$("addClickBtn").hidden = true;
 		if (mapVisible && emitTo)
 			emitTo("overlay", "overlay-selection", {
 				actionId: selectedActionId,
@@ -442,7 +453,7 @@ type HotkeyCapture = {
 			)
 				action.button = intent.value;
 		}
-		if (intent.type === "add-click")
+		if (intent.type === "add-click" && !browserMode)
 			flow.actions.push({
 				id: uid(),
 				type: "click",
@@ -727,9 +738,17 @@ type HotkeyCapture = {
 		action: ClickAction,
 		x: number,
 		y: number,
+		viewportWidth?: number,
+		viewportHeight?: number,
 	): Promise<void> {
 		action.screenX = Math.round(x);
 		action.screenY = Math.round(y);
+		if (browserMode) {
+			action.x = action.screenX;
+			action.y = action.screenY;
+			if (viewportWidth) action.viewportWidth = viewportWidth;
+			if (viewportHeight) action.viewportHeight = viewportHeight;
+		}
 		if (nativeAvailable) {
 			try {
 				const meta = await invoke("retarget_click", {
@@ -914,6 +933,8 @@ type HotkeyCapture = {
 			});
 			publishEditorSnapshot();
 		} catch (err) {
+			toast("Playback failed", String(err), "error");
+		} finally {
 			await setPlaybackHud(false);
 			await setActivityBadge(invoke, "idle");
 			clearPlaybackStatus();
@@ -921,7 +942,6 @@ type HotkeyCapture = {
 			runningFlowId = null;
 			renderFlowList();
 			setStatus("Idle");
-			toast("Playback failed", String(err), "error");
 		}
 	}
 
@@ -1204,6 +1224,9 @@ type HotkeyCapture = {
 	}
 
 	function bindUi() {
+		if (browserMode) {
+			bindBrowserPocPanel(invoke);
+		}
 		const closeLibraryMenu = () => {
 			$("libraryMenu").classList.add("hidden");
 			$("libraryMenuBtn").setAttribute("aria-expanded", "false");
@@ -1524,23 +1547,37 @@ type HotkeyCapture = {
 				: null;
 			if (!acceptsRecordedClick(recordingSessionState) || !flow) return;
 			const c = event.payload;
+			const screenX = browserMode ? c.x : c.screenX;
+			const screenY = browserMode ? c.y : c.screenY;
+			const viewportWidth = c.viewportWidth;
+			const viewportHeight = c.viewportHeight;
 			if (
-				typeof c.screenX !== "number" ||
-				typeof c.screenY !== "number" ||
-				typeof c.delayMs !== "number"
+				typeof screenX !== "number" ||
+				typeof screenY !== "number" ||
+				typeof c.delayMs !== "number" ||
+				(browserMode &&
+					(typeof viewportWidth !== "number" ||
+						typeof viewportHeight !== "number"))
 			)
 				return;
 			const a: ClickAction = {
 				id: uid(),
 				type: "click",
 				name: `Click ${clickCount(flow) + 1}`,
-				screenX: c.screenX,
-				screenY: c.screenY,
+				screenX,
+				screenY,
 				relativeX: c.relativeX,
 				relativeY: c.relativeY,
 				windowTitle: c.windowTitle,
 				button: c.button === "right" ? "right" : "left",
 				delayMs: c.delayMs,
+				...(browserMode && {
+					target: "browser" as const,
+					x: screenX,
+					y: screenY,
+					viewportWidth: viewportWidth as number,
+					viewportHeight: viewportHeight as number,
+				}),
 			};
 			flow.actions.push(a);
 			selectedActionId = a.id;
@@ -1608,7 +1645,13 @@ type HotkeyCapture = {
 				return;
 			const action = findAction(flow.actions, move.actionId);
 			if (action?.type !== "click") return;
-			await updateClickPosition(action, move.screenX, move.screenY);
+			await updateClickPosition(
+				action,
+				move.screenX,
+				move.screenY,
+				move.viewportWidth,
+				move.viewportHeight,
+			);
 			toast(
 				"Click point moved",
 				`${action.name} → ${move.screenX}, ${move.screenY}`,
@@ -1620,6 +1663,21 @@ type HotkeyCapture = {
 	bindUi();
 	bindEditorView((type, payload) => applyEditorIntent({ type, ...payload }));
 	bindTauriEvents();
+	if (browserMode) {
+		document.addEventListener("keydown", (event) => {
+			if (capturingHotkey || event.repeat) return;
+			const shortcut = normalizeHotkeyEvent(event);
+			if (shortcut === state.settings.recordHotkey) {
+				event.preventDefault();
+				void (recordingSessionState.active || recordingSessionState.starting
+					? stopRecording()
+					: startRecording());
+			} else if (shortcut === state.settings.playbackHotkey) {
+				event.preventDefault();
+				void (playing ? stopPlayback() : runFlow());
+			}
+		});
+	}
 	showVersion().catch(() => {});
 	loadState();
 })();

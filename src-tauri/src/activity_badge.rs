@@ -67,10 +67,12 @@ fn badged_icon(activity: Activity) -> Result<Image<'static>, String> {
 }
 
 pub fn set(app: &AppHandle, value: &str) -> Result<(), String> {
+    set_for_window(app, "main", value)
+}
+
+pub fn set_for_window(app: &AppHandle, label: &str, value: &str) -> Result<(), String> {
     let activity = Activity::parse(value)?;
-    let main = app
-        .get_webview_window("main")
-        .ok_or("Main window is unavailable")?;
+    let main = app.get_window(label).ok_or("Window is unavailable")?;
     #[cfg(target_os = "windows")]
     return main
         .set_overlay_icon((activity != Activity::Idle).then(|| mark(activity, 32)))

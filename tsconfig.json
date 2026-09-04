@@ -9,5 +9,5 @@
 		"allowImportingTsExtensions": false,
 		"types": ["node", "vitest/globals"]
 	},
-	"include": ["src/**/*.ts", "experiments/**/*.ts"]
+	"include": ["src/**/*.ts"]
 }

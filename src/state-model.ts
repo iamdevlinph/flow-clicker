@@ -18,6 +18,14 @@ type LegacyFlow = Omit<Partial<Flow>, "playback"> & {
 	actions?: Action[];
 	playback?: LegacyPlayback;
 };
+
+export const flowTarget = (
+	flow: Pick<Flow, "target"> | null | undefined,
+): "desktop" | "browser" =>
+	flow?.target === "browser" ? "browser" : "desktop";
+
+export const canCombineFlows = (flows: Pick<Flow, "target">[] = []): boolean =>
+	new Set(flows.map(flowTarget)).size <= 1;
 type LegacyGroup = Partial<LibraryGroup> & {
 	id?: string;
 	name?: string;
@@ -172,7 +180,7 @@ export function combineFlows(
 	id: IdSource = () => crypto.randomUUID(),
 ): Flow | null {
 	const sources = (flows ?? []).filter(Boolean);
-	if (!sources.length) return null;
+	if (!sources.length || !canCombineFlows(sources)) return null;
 	return {
 		id: nextId(id),
 		name: `Combined — ${sources.map((flow) => flow.name).join(" + ")}`,
@@ -181,6 +189,7 @@ export function combineFlows(
 			id,
 		),
 		groupId: sources[0].groupId ?? null,
+		target: flowTarget(sources[0]),
 	};
 }
 
@@ -219,6 +228,7 @@ export function migrateState(input: PersistedStateInput = {}): AppState {
 			id: flow.id ?? crypto.randomUUID(),
 			name: flow.name ?? "Flow",
 			groupId: flow.groupId ?? null,
+			target: flow.target === "browser" ? "browser" : "desktop",
 			actions: (Array.isArray(flow.actions) ? flow.actions : []).map(
 				normalizeActionButton,
 			),

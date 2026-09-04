@@ -37,7 +37,7 @@ fn valid_json(path: &Path) -> Result<bool, String> {
     }
 }
 
-fn load_from_dir(dir: &Path) -> Result<Option<String>, String> {
+pub fn load_from_dir(dir: &Path) -> Result<Option<String>, String> {
     let paths = [
         dir.join("state.json"),
         dir.join("state.json.tmp"),
@@ -148,7 +148,7 @@ fn replace_primary(dir: &Path, primary_valid: bool) -> Result<(), String> {
     }
 }
 
-fn save_to_dir(json: &str, dir: &Path) -> Result<(), String> {
+pub fn save_to_dir(json: &str, dir: &Path) -> Result<(), String> {
     serde_json::from_str::<serde_json::Value>(json)
         .map_err(|e| format!("Refusing to save invalid JSON: {e}"))?;
     fs::create_dir_all(dir).map_err(|e| e.to_string())?;

@@ -1,6 +1,8 @@
 # FlowClicker
 
-FlowClicker has been redesigned as a cross-platform Tauri desktop app that records click-only flows and replays them using the **physical OS mouse**. Browser background-tab clicking is intentionally out of scope for this version.
+FlowClicker’s shipped Desktop Playback records click-only flows and replays them using the **physical OS mouse**. A separate Windows-first Browser Playback direction is now in scope as a disposable WebView2 experiment; it does not alter Desktop Playback and will not enter the main app until Gate 4 has live Windows evidence.
+
+See [`experiments/webview2-input-poc`](experiments/webview2-input-poc/README.md) for the active Gates 0–4 experiment. All live gates are currently **NOT RUN**.
 
 ## Download a portable release
 

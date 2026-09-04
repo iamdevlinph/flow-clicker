@@ -9,9 +9,10 @@ tests without DOM emulation. Run `pnpm install --frozen-lockfile`, `pnpm check`,
 
 ## Product intent and invariants
 
-FlowClicker is a Tauri desktop application that records and replays physical OS
-mouse clicks. It does not inject DOM events, use WebDriver, or support
-background-tab clicking.
+FlowClicker has two separate product directions. Desktop Playback records and
+replays physical OS mouse clicks. Windows-first Browser Playback uses
+browser-local WebView2 input in a disposable experiment; it does not use DOM
+activation or alter the physical engine.
 
 - Record click actions only. Pointer movement may be observed to locate a click,
   but movement actions are never stored.
@@ -62,7 +63,29 @@ relevant automated check or platform smoke test is recorded here.
 - The frontend controller duplicates state/model behavior and lacks adequate
   automated coverage.
 
-## Active milestone: approved library-first UI
+## Active milestone: Windows Browser Playback Gates 0–4
+
+The disposable `experiments/webview2-input-poc` is the active experiment. Gate 0
+proves ordinary game interaction and HWND hosting; Gate 1 verifies parsed CDP
+results; Gate 2 proves one browser-local click sequence without cursor movement;
+Gate 3 requires operator-confirmed activation of a safe fixed-game control; Gate 4
+proves cancellable repeated replay while another application owns foreground
+focus and input. Foreground, unfocused-visible, partially covered, and fully
+covered states are separate observations. Minimized and hidden operation are
+not implemented. Every live gate is **NOT RUN**; compilation is not gate proof.
+
+The POC uses one decorated, non-resizable Windows host with an exact 1600×900
+CSS game viewport. FlowClicker is a 460×752 child WebView (720px content plus a
+32px POC title bar) that starts at (20,20) and remains draggable within the host.
+A transparent implementation-only top-level overlay stays aligned to the host.
+Native minimize and close remain available; maximize is disabled. Interactive
+click-map mode hides and then restores the child panel.
+
+Main-app Browser Mode, browser flow schemas, and browser UI remain deferred
+until a recorded Gate 4 PASS. The prior approved library-first UI milestone is
+paused, with its evidence retained below.
+
+## Prior/paused milestone: approved library-first UI
 
 All items remain **planned** until implemented and verified.
 

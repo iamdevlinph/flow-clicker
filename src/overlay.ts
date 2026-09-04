@@ -81,6 +81,8 @@ type PlaybackClick = {
 						actionId: element.dataset.actionId,
 						screenX: Math.round(event.clientX + payload.originX),
 						screenY: Math.round(event.clientY + payload.originY),
+						viewportWidth: window.innerWidth,
+						viewportHeight: window.innerHeight,
 					});
 				} catch (error: unknown) {
 					console.error(error);
@@ -120,9 +122,13 @@ type PlaybackClick = {
 	);
 	document.addEventListener("keydown", (event: KeyboardEvent): void => {
 		dismissOverlayOnEscape(event, (): void => {
-			native.event
+			void native.core?.invoke?.("hide_overlay").catch(() => {});
+			void native.event
 				?.emitTo?.("main", "overlay-dismiss-requested")
-				.catch((): void => {});
+				.catch(() => {});
+			void native.event
+				?.emitTo?.("control", "overlay-dismiss-requested")
+				.catch(() => {});
 		});
 	});
 })();

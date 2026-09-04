@@ -96,13 +96,20 @@ test("migrates v3 shared playback with selected, first, and default precedence i
 	expect(combined && "playback" in combined).toBe(false);
 });
 
-test("migrates v4 flows while discarding obsolete target metadata", () => {
+test("migrates legacy flows to desktop and preserves browser targets", () => {
 	const migrated = migrateState({
 		version: 4,
 		flows: [{ id: "new", target: { executablePath: "C:\\App.exe" } }],
 		settings: {},
 	} as unknown as PersistedInput);
-	expect("target" in migrated.flows[0]).toBe(false);
+	expect(migrated.flows[0].target).toBe("desktop");
+	expect(
+		migrateState({
+			version: 4,
+			flows: [{ id: "browser", target: "browser" }],
+			settings: {},
+		}).flows[0].target,
+	).toBe("browser");
 });
 
 test("preserves combined-flow provenance and normalizes malformed actions", () => {

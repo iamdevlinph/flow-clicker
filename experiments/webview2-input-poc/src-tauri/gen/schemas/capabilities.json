@@ -5,5 +5,12 @@
 		"local": true,
 		"windows": ["control"],
 		"permissions": ["core:default", "core:event:default"]
+	},
+	"overlay-events": {
+		"identifier": "overlay-events",
+		"description": "The click-map overlay may receive its display events and report marker moves.",
+		"local": true,
+		"windows": ["overlay"],
+		"permissions": ["core:default", "core:event:default"]
 	}
 }

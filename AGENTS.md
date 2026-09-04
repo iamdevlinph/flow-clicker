@@ -1,7 +1,7 @@
 # FlowClicker Codex Notes
 
 ## Goal
-FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mouse rather than DOM events or WebDriver. Background-tab clicking is out of scope for now.
+FlowClicker has two separate product directions: existing Desktop Playback uses the physical OS mouse, while Windows-first Browser Playback experiments with browser-local WebView2 input. Browser-local input is in scope; main-app integration waits for recorded Gate 4 evidence.
 
 ## Architecture
 - `src/`: framework-free HTML/CSS/TypeScript. `pnpm install --frozen-lockfile && pnpm build` emits browser JavaScript beside the static assets; `pnpm test` runs Vitest in Node.
@@ -18,6 +18,8 @@ FlowClicker is now a Tauri desktop app. It intentionally uses the physical OS mo
 - Combined-flow order is the checkbox selection order shown in the Flow Library.
 - Local state is written to the user's application-data directory as `state.json`.
 - Physical playback must stop promptly when Stop is requested.
+- Browser Playback never changes or routes through the Desktop Playback engine.
+- WebView2 Gates 0–4 remain **NOT RUN** or **verification pending** until recorded live Windows evidence exists.
 
 ## UI behavior
 - Keep product-facing layout and workflow decisions in `PLANS.md`.

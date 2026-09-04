@@ -1,4 +1,5 @@
 export type ActionButton = "left" | "right";
+export type FlowTarget = "desktop" | "browser";
 export type ClickAction = {
 	type: "click";
 	id: string;
@@ -9,6 +10,24 @@ export type ClickAction = {
 	relativeY?: number | null;
 	windowTitle?: string | null;
 	button?: ActionButton;
+	delayMs: number;
+	target?: FlowTarget;
+	x?: number;
+	y?: number;
+	viewportWidth?: number;
+	viewportHeight?: number;
+};
+/** Browser-local click coordinates captured from a WebView viewport. */
+export type BrowserClickAction = {
+	type: "click";
+	id: string;
+	name: string;
+	target: "browser";
+	x: number;
+	y: number;
+	viewportWidth: number;
+	viewportHeight: number;
+	button: ActionButton;
 	delayMs: number;
 };
 export type DelayAction = {
@@ -42,6 +61,8 @@ export type Flow = {
 	name: string;
 	actions: Action[];
 	groupId: string | null;
+	/** Legacy flows normalize to desktop; new browser POC flows use browser. */
+	target?: FlowTarget;
 	createdAt?: string;
 	updatedAt?: string;
 	combinedFrom?: Array<{ id: string; name: string }>;
@@ -84,6 +105,8 @@ export type NativePayload = {
 	relativeY?: number | null;
 	windowTitle?: string | null;
 	button?: "left" | "right";
+	viewportWidth?: number;
+	viewportHeight?: number;
 	delayMs?: number;
 	execution?: number;
 	event?: string;
@@ -146,5 +169,6 @@ export type NativeApi = {
 declare global {
 	interface Window {
 		__TAURI__?: NativeApi;
+		__FLOWCLICKER_TARGET__?: FlowTarget;
 	}
 }

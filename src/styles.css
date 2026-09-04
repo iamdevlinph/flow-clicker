@@ -106,6 +106,39 @@ select:focus {
 	display: flex;
 	flex-direction: column;
 }
+.browser-poc-titlebar {
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 6px 0 10px;
+	background: var(--panel-2);
+	border-bottom: 1px solid var(--line);
+	font-size: 11px;
+	font-weight: 700;
+	user-select: none;
+	cursor: move;
+	touch-action: none;
+}
+.browser-poc-targets {
+	display: flex;
+	gap: 4px;
+}
+.browser-poc-drag-handle {
+	border: 0;
+	padding: 0;
+	background: transparent;
+	font-weight: 700;
+	cursor: move;
+}
+.browser-poc-targets button {
+	padding: 3px 7px;
+	font-size: 9px;
+	cursor: pointer;
+}
+body.browser-poc #appShell {
+	height: calc(100vh - 32px);
+}
 .topbar {
 	height: 58px;
 	flex: 0 0 58px;
@@ -179,6 +212,9 @@ body.hud-mode #appShell {
 	height: 36px;
 }
 body.hud-mode #appShell > :not(#runtimeStatus) {
+	display: none;
+}
+body.browser-poc.hud-mode #browserPocTitlebar {
 	display: none;
 }
 body.hud-mode .status-banner {

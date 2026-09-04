@@ -1,23 +1,40 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
-	"productName": "Trusted Input POC",
+	"productName": "FlowClicker Browser Playback POC",
 	"identifier": "com.flowclicker.webview2-input-poc",
 	"build": {
-		"frontendDist": "../src",
-		"beforeDevCommand": "pnpm --dir ../.. build",
-		"beforeBuildCommand": "pnpm --dir ../.. install --frozen-lockfile && pnpm --dir ../.. build"
+		"frontendDist": "../../../src",
+		"beforeDevCommand": "pnpm --dir ../../.. build",
+		"beforeBuildCommand": "pnpm --dir ../../.. install --frozen-lockfile && pnpm --dir ../../.. build"
 	},
 	"app": {
 		"withGlobalTauri": true,
 		"windows": [
 			{
-				"label": "control",
-				"title": "Trusted Input POC",
-				"url": "index.html",
-				"width": 760,
+				"label": "game",
+				"title": "Browser Game · WebView2",
+				"url": "about:blank",
+				"width": 1600,
 				"height": 900,
-				"resizable": true,
+				"visible": false,
+				"decorations": true,
+				"resizable": false,
+				"maximizable": false,
+				"minimizable": true,
+				"closable": true,
 				"center": true
+			},
+			{
+				"label": "overlay",
+				"title": "FlowClicker Browser Overlay",
+				"url": "overlay.html",
+				"visible": false,
+				"decorations": false,
+				"transparent": true,
+				"alwaysOnTop": true,
+				"skipTaskbar": true,
+				"resizable": false,
+				"shadow": false
 			}
 		],
 		"security": { "csp": null }

@@ -2,7 +2,8 @@
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
 		"noEmit": false,
-		"outDir": ".",
+		"rootDir": "src",
+		"outDir": "src",
 		"declaration": false,
 		"sourceMap": false
 	},
