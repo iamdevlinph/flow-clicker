@@ -900,7 +900,7 @@ dependencies = [
 
 [[package]]
 name = "flowclicker"
-version = "1.12.2"
+version = "1.13.0"
 dependencies = [
  "enigo",
  "rdev",

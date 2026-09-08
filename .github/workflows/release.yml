@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      release_body: ${{ steps.version.outputs.release_body }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,6 +33,12 @@ jobs:
           previous=$(git show '${{ github.event.before }}:src-tauri/Cargo.toml' | sed -n 's/^version = "\([0-9.]*\)"/\1/p' | head -1)
           test -n "$version" && test "$version" != "$previous"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          test -s RELEASE_NOTES.md
+          {
+            echo 'release_body<<EOF'
+            cat RELEASE_NOTES.md
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
       - run: python3 .agents/skills/flowclicker-version/scripts/bump_version.py none
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -80,7 +87,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: FlowClicker v__VERSION__
-          releaseBody: Portable FlowClicker downloads for Windows, Linux, and Apple Silicon macOS.
+          releaseBody: ${{ needs.validate.outputs.release_body }}
           releaseCommitish: ${{ github.sha }}
           releaseDraft: true
           prerelease: false

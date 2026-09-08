@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 CARGO = ROOT / "src-tauri/Cargo.toml"
 LOCK = ROOT / "src-tauri/Cargo.lock"
+NOTES = ROOT / "RELEASE_NOTES.md"
 VERSION = re.compile(r'(?m)^(version = ")(\d+\.\d+\.\d+)(")$')
 
 
@@ -39,6 +40,12 @@ def apply(level):
         raise SystemExit(f"unexpected existing version edit: Cargo.toml={current}, Cargo.lock={locked}, HEAD={base}")
     if level == "none":
         return base
+    committed_notes = subprocess.run(
+        ["git", "show", "HEAD:RELEASE_NOTES.md"], cwd=ROOT, text=True, capture_output=True
+    )
+    notes = NOTES.read_text() if NOTES.exists() else ""
+    if not notes.strip() or (committed_notes.returncode == 0 and notes == committed_notes.stdout):
+        raise SystemExit("update RELEASE_NOTES.md before bumping the version")
     CARGO.write_text(VERSION.sub(rf'\g<1>{target}\g<3>', cargo, count=1))
     match = package_version(lock)
     LOCK.write_text(lock[:match.start(1)] + target + lock[match.end(1):])
