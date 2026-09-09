@@ -56,6 +56,9 @@ relevant automated check or platform smoke test is recorded here.
 
 ## Known gaps and defects
 
+- Linux retains Tauri/Wry's GTK `glib` 0.18 dependency and its two RustSec
+  alerts; `glib` fixes them only in 0.20, so the upstream block is accepted
+  until Tauri/Wry migrates, at which point remove this exception.
 - Editor grouping and multi-selection interactions are incomplete.
 - Rendered and physical smoke verification remains pending.
 - Closing the overlay with Alt+F4 has an application-lifecycle defect.
