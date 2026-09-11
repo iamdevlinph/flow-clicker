@@ -1,4 +1,4 @@
-name: Pockie v21 native sidebar POC
+name: Pockie v22 clickable native sidebar POC
 
 on:
   push:
@@ -24,6 +24,26 @@ jobs:
         shell: pwsh
         run: |
           nuget install Microsoft.Web.WebView2 -OutputDirectory .pockie-poc/packages -ExcludeVersion -NonInteractive
+      - name: Patch sidebar interaction for v22
+        shell: pwsh
+        run: |
+          $path = '.pockie-poc/main.cpp'
+          $s = Get-Content $path -Raw -Encoding UTF8
+          $oldHost = "host.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none;font-family:Inter,Segoe UI,system-ui,sans-serif'"
+          $newHost = "host.style.cssText='position:fixed;right:0;top:0;width:72px;height:72px;z-index:2147483647;pointer-events:auto;font-family:Inter,Segoe UI,system-ui,sans-serif'"
+          $s = $s.Replace($oldHost, $newHost)
+          $oldSet = "const setOpen=o=>{panel.classList.toggle('open',o);hamb.style.display=o?'none':'block';post(o?'ui:expanded':'ui:collapsed')}"
+          $newSet = "const setOpen=o=>{host.style.width=o?'390px':'72px';host.style.height=o?'100vh':'72px';panel.classList.toggle('open',o);hamb.style.display=o?'none':'block';post(o?'ui:expanded':'ui:collapsed')}"
+          $s = $s.Replace($oldSet, $newSet)
+          $oldGuard = "for(const t of['pointerdown','pointerup','mousedown','mouseup','click','dblclick','contextmenu','wheel'])window.addEventListener(t,e=>{if(e.composedPath().includes(host))e.stopImmediatePropagation()},true)"
+          $newGuard = "for(const t of['pointerdown','pointerup','mousedown','mouseup','click','dblclick','contextmenu','wheel'])root.addEventListener(t,e=>e.stopPropagation())"
+          $s = $s.Replace($oldGuard, $newGuard)
+          $s = $s.Replace('aria-label="Open recorder">☰</button>', 'aria-label="Open recorder"><span class="hamb-lines"><i></i><i></i><i></i></span></button>')
+          $s = $s.Replace('#hamb{position:absolute;', '#hamb{position:absolute;display:grid;place-items:center;')
+          $s = $s.Replace('#panel{position:absolute;', '.hamb-lines{width:22px;height:16px;display:flex;flex-direction:column;justify-content:space-between}.hamb-lines i{display:block;height:2px;border-radius:2px;background:#f5f7fb;width:100%}#panel{position:absolute;')
+          Set-Content $path $s -Encoding UTF8
+          if ($s -notmatch 'root.addEventListener') { throw 'Event guard patch failed' }
+          if ($s -notmatch "width:o\?'390px':'72px'") { throw 'Host resize patch failed' }
       - name: Build native POC
         shell: pwsh
         run: |
@@ -32,18 +52,18 @@ jobs:
           $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $vs) { throw 'MSVC installation not found' }
           $devcmd = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
-          $compile = 'cl /nologo /EHsc /std:c++17 /O2 /DUNICODE /D_UNICODE /I ".pockie-poc\packages\Microsoft.Web.WebView2\build\native\include" ".pockie-poc\main.cpp" /Fe:"PockieClickerPOC_v21_native_sidebar.exe" /link /SUBSYSTEM:WINDOWS ".pockie-poc\packages\Microsoft.Web.WebView2\build\native\x64\WebView2LoaderStatic.lib" dcomp.lib ole32.lib user32.lib gdi32.lib shell32.lib advapi32.lib'
+          $compile = 'cl /nologo /EHsc /std:c++17 /utf-8 /O2 /DUNICODE /D_UNICODE /I ".pockie-poc\packages\Microsoft.Web.WebView2\build\native\include" ".pockie-poc\main.cpp" /Fe:"PockieClickerPOC_v22_clickable_sidebar.exe" /link /SUBSYSTEM:WINDOWS ".pockie-poc\packages\Microsoft.Web.WebView2\build\native\x64\WebView2LoaderStatic.lib" dcomp.lib ole32.lib user32.lib gdi32.lib shell32.lib advapi32.lib'
           cmd /c "`"$devcmd`" -arch=x64 && $compile"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Inspect binary
         shell: pwsh
         run: |
-          if (!(Test-Path .\PockieClickerPOC_v21_native_sidebar.exe)) { throw 'EXE missing' }
-          $f = Get-Item .\PockieClickerPOC_v21_native_sidebar.exe
+          if (!(Test-Path .\PockieClickerPOC_v22_clickable_sidebar.exe)) { throw 'EXE missing' }
+          $f = Get-Item .\PockieClickerPOC_v22_clickable_sidebar.exe
           Write-Host "Built $($f.FullName) size=$($f.Length)"
-          Get-FileHash .\PockieClickerPOC_v21_native_sidebar.exe -Algorithm SHA256
+          Get-FileHash .\PockieClickerPOC_v22_clickable_sidebar.exe -Algorithm SHA256
       - uses: actions/upload-artifact@v4
         with:
-          name: PockieClickerPOC-v21-native-sidebar
-          path: PockieClickerPOC_v21_native_sidebar.exe
+          name: PockieClickerPOC-v22-clickable-sidebar
+          path: PockieClickerPOC_v22_clickable_sidebar.exe
           if-no-files-found: error
