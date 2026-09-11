@@ -41,9 +41,10 @@ jobs:
           $s = $s.Replace('aria-label="Open recorder">☰</button>', 'aria-label="Open recorder"><span class="hamb-lines"><i></i><i></i><i></i></span></button>')
           $s = $s.Replace('#hamb{position:absolute;', '#hamb{position:absolute;display:grid;place-items:center;')
           $s = $s.Replace('#panel{position:absolute;', '.hamb-lines{width:22px;height:16px;display:flex;flex-direction:column;justify-content:space-between}.hamb-lines i{display:block;height:2px;border-radius:2px;background:#f5f7fb;width:100%}#panel{position:absolute;')
+          if (!$s.Contains($newHost)) { throw 'Host geometry patch failed' }
+          if (!$s.Contains($newSet)) { throw 'Host resize patch failed' }
+          if (!$s.Contains($newGuard)) { throw 'Event guard patch failed' }
           Set-Content $path $s -Encoding UTF8
-          if ($s -notmatch 'root.addEventListener') { throw 'Event guard patch failed' }
-          if ($s -notmatch "width:o\?'390px':'72px'") { throw 'Host resize patch failed' }
       - name: Build native POC
         shell: pwsh
         run: |
