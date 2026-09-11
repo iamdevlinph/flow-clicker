@@ -27,7 +27,8 @@ jobs:
       - name: Build native POC
         shell: pwsh
         run: |
-          $vswhere = "$env:ProgramFiles(x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vswhere = Get-ChildItem 'C:\Program Files*\Microsoft Visual Studio\Installer\vswhere.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vswhere) { throw 'vswhere.exe not found' }
           $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $vs) { throw 'MSVC installation not found' }
           $devcmd = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
