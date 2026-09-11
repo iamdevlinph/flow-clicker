@@ -1,6 +1,11 @@
 name: Pockie v21 native sidebar POC
 
 on:
+  push:
+    branches: [chatgpt/pockie-v21-native-sidebar]
+    paths:
+      - '.pockie-poc/**'
+      - '.github/workflows/pockie-v21-poc.yml'
   pull_request:
     branches: [main]
     paths:
