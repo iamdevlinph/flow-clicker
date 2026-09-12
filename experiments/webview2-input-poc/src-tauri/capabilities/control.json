@@ -1,7 +1,0 @@
-{
-	"$schema": "../gen/schemas/desktop-schema.json",
-	"identifier": "control-only",
-	"description": "Only the local control window may invoke POC commands.",
-	"windows": ["control"],
-	"permissions": ["core:default", "core:event:default"]
-}

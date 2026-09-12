@@ -2,10 +2,10 @@
 
 ## Frontend toolchain
 
-The frontend and WebView2 experiment are authored in strict TypeScript. Plain
-`tsc` emits `.js` beside the static assets; Vitest runs the existing Node-only
-tests without DOM emulation. Run `pnpm install --frozen-lockfile`, `pnpm check`,
-`pnpm test`, and `pnpm build` before desktop packaging.
+The frontend is authored in strict TypeScript. Plain `tsc` emits `.js` beside
+the static assets; Vitest runs the existing Node-only tests without DOM
+emulation. Run `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, and
+`pnpm build` before desktop packaging.
 
 ## Product intent and invariants
 
@@ -240,11 +240,6 @@ remain pending until an X11 desktop is available.
       closest shipped analogues, and complete structural review.
 
 ## Deferred roadmap
-
-Parallel WebView2 experiment (2026-08-27): disposable Stage A trusted-input
-POC added under `experiments/webview2-input-poc/`. Automated contract tests pass
-on macOS; Windows bridge compilation and the explicitly approved live proof are
-pending, so the result remains **NOT RUN** and no successor-app work may start.
 
 - Multi-monitor overlay selection and virtual-desktop coverage.
 - macOS window-relative tracking plus Accessibility permission-status UX.

@@ -2,4 +2,4 @@ Portable FlowClicker downloads for Windows, Linux, and Apple Silicon macOS.
 
 ## What's Changed
 
-- Add release change summaries from a checked-in file.
+- Remove the retired WebView2 browser-control proof of concept and its build tooling.
